@@ -1,0 +1,79 @@
+{
+  "fp_cost_default_inr": 250.0,
+  "decision_rule": "per-dispute economic rule on calibrated probabilities (win_prob vs FP_COST/(FP_COST+amount))",
+  "total_cost_inr": 301341.06,
+  "cost_flag_everything_insufficient_inr": 821876.1,
+  "cost_submit_everything_inr": 410500.0,
+  "per_reason": [
+    {
+      "reason": "credit_not_processed",
+      "n": 275,
+      "n_positive": 49,
+      "precision": 0.241,
+      "recall": 0.571,
+      "f1": 0.339,
+      "fn_cost_inr": 20846.03,
+      "fp_cost_inr": 22000.0
+    },
+    {
+      "reason": "duplicate_charge",
+      "n": 197,
+      "n_positive": 57,
+      "precision": 0.505,
+      "recall": 0.895,
+      "f1": 0.646,
+      "fn_cost_inr": 5849.95,
+      "fp_cost_inr": 12500.0
+    },
+    {
+      "reason": "fraud",
+      "n": 447,
+      "n_positive": 85,
+      "precision": 0.231,
+      "recall": 0.647,
+      "f1": 0.341,
+      "fn_cost_inr": 25822.86,
+      "fp_cost_inr": 45750.0
+    },
+    {
+      "reason": "item_not_received",
+      "n": 556,
+      "n_positive": 97,
+      "precision": 0.237,
+      "recall": 0.68,
+      "f1": 0.352,
+      "fn_cost_inr": 27990.52,
+      "fp_cost_inr": 53000.0
+    },
+    {
+      "reason": "not_as_described",
+      "n": 368,
+      "n_positive": 47,
+      "precision": 0.112,
+      "recall": 0.34,
+      "f1": 0.168,
+      "fn_cost_inr": 28174.82,
+      "fp_cost_inr": 31750.0
+    },
+    {
+      "reason": "subscription_cancelled",
+      "n": 157,
+      "n_positive": 23,
+      "precision": 0.15,
+      "recall": 0.522,
+      "f1": 0.233,
+      "fn_cost_inr": 10656.88,
+      "fp_cost_inr": 17000.0
+    },
+    {
+      "reason": "OVERALL",
+      "n": 2000,
+      "n_positive": 358,
+      "precision": 0.238,
+      "recall": 0.637,
+      "f1": 0.347,
+      "fn_cost_inr": 119341.06,
+      "fp_cost_inr": 182000.0
+    }
+  ]
+}
