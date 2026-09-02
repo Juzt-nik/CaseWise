@@ -47,6 +47,84 @@ REASON_RELEVANT_FIELDS = {
 DEFAULT_FP_COST_INR = 250.0
 
 
+# Real Razorpay Disputes API evidence schema (per public docs:
+# razorpay.com/docs/api/disputes/contest/) -- maps CaseWise's synthetic
+# evidence fields onto the typed fields Razorpay's actual Contest API
+# expects, so a drafted packet's shape is deployment-compatible rather
+# than a generic internal structure. Most mappings are direct; three
+# (access_activity_log for verification signals, proof_of_service for
+# product photos, billing_proof for duplicate-transaction evidence) are
+# reasoned interpretations, not explicitly documented pairings.
+EVIDENCE_FIELD_TO_RAZORPAY_SCHEMA = {
+    "delivery_proof_available": "shipping_proof",
+    "tracking_number_valid": "shipping_proof",
+    "signature_confirmation": "shipping_proof",
+    "refund_already_processed": "refund_confirmation",
+    "refund_processed_before_dispute": "refund_confirmation",
+    "customer_communication_count": "customer_communication",
+    "customer_communication_sentiment": "customer_communication",
+    "refund_policy_disclosed_at_purchase": "refund_cancellation_policy",
+    "subscription_cancellation_confirmed": "cancellation_proof",
+    "duplicate_transaction_exists": "billing_proof",          # interpreted mapping
+    "product_photos_available": "proof_of_service",           # interpreted mapping
+    "avs_match": "access_activity_log",                       # interpreted mapping
+    "cvv_match": "access_activity_log",                       # interpreted mapping
+    "ip_device_match": "access_activity_log",                 # interpreted mapping
+}
+RAZORPAY_EXPLANATION_LETTER_MAX_CHARS = 1000  # real API constraint on the explanation field
+
+# Per Razorpay's public docs: if a fraud-reason dispute isn't contested,
+# the MERCHANT must refund manually; for every other reason code, Razorpay
+# auto-refunds the customer. This doesn't change any CaseWise decision --
+# it's downstream-process context for whichever way the gate decides.
+FRAUD_REASON_CODES = {"fraud"}
+
+
+def map_to_razorpay_evidence_schema(evidence: dict, narrative: str) -> dict:
+    """
+    Reshapes drafted evidence into the field names Razorpay's real Contest
+    API expects. Applied AFTER the gate has already decided to submit --
+    purely a presentation-layer mapping. Cannot affect win-probability
+    scoring, the economic decision, or anything reported in evaluate.py,
+    day2_train_and_compare.py, or heuristic_baseline.py, none of which
+    call this function.
+    """
+    categories = {}
+    for field, value in evidence.items():
+        if value in (None, 0, False):
+            continue
+        razorpay_field = EVIDENCE_FIELD_TO_RAZORPAY_SCHEMA.get(field)
+        if razorpay_field:
+            categories.setdefault(razorpay_field, []).append(field)
+
+    unmapped = [f for f in evidence.keys() if f not in EVIDENCE_FIELD_TO_RAZORPAY_SCHEMA]
+
+    explanation_letter = narrative
+    truncated = False
+    if len(explanation_letter) > RAZORPAY_EXPLANATION_LETTER_MAX_CHARS:
+        explanation_letter = explanation_letter[:RAZORPAY_EXPLANATION_LETTER_MAX_CHARS]
+        truncated = True
+
+    return {
+        'evidence_categories_present': categories,
+        'explanation_letter': explanation_letter,
+        'explanation_letter_truncated': truncated,
+        'evidence_fields_without_a_schema_mapping': unmapped,
+    }
+
+
+def get_decline_resolution_path(reason_code: str) -> str:
+    """Informational only -- describes what happens downstream in Razorpay's
+    real system if this dispute is NOT successfully contested, based on its
+    reason code. Never used in any decision logic."""
+    if reason_code in FRAUD_REASON_CODES:
+        return ("Fraud-reason dispute: per Razorpay's process, if not contested "
+                "(or contested and lost), the merchant must refund the customer manually.")
+    return ("Non-fraud-reason dispute: per Razorpay's process, if not contested "
+            "(or contested and lost), Razorpay auto-refunds the customer -- no manual "
+            "merchant action required.")
+
+
 class DisputePipeline:
     def __init__(self, fp_cost_inr=DEFAULT_FP_COST_INR):
         self.model = XGBClassifier()
@@ -145,6 +223,7 @@ class DisputePipeline:
         # the one place an LLM belongs -- see _draft_narrative_field().
         narrative = self._draft_narrative_field(reason_code, evidence_result['evidence'])
         grounding = validate_narrative_grounding(narrative, evidence_result['evidence'])
+        razorpay_schema = map_to_razorpay_evidence_schema(evidence_result['evidence'], narrative)
         return {
             'dispute_id': dispute['dispute_id'],
             'reason_code': reason_code,
@@ -153,6 +232,7 @@ class DisputePipeline:
             'evidence_summary': evidence_result['evidence'],
             'narrative': narrative,
             'grounding_check': grounding,
+            'razorpay_evidence_schema': razorpay_schema,
         }
 
     def _draft_narrative_field(self, reason_code: str, evidence: dict) -> str:
@@ -187,6 +267,38 @@ class DisputePipeline:
             return f"No supporting evidence on file for this {reason_code.replace('_', ' ')} dispute."
         return f"Evidence on file for this {reason_code.replace('_', ' ')} dispute: " + "; ".join(present) + "."
 
+    # ---- deadline guard -------------------------------------------------------
+    def check_deadline(self, dispute: dict):
+        """
+        Hard guard, not a soft cost factor: if the response deadline has
+        passed, the outcome is forced regardless of win probability.
+        Deliberately NOT folded into the cost function as a continuous
+        urgency weight -- that would just recreate the FP-cost-arbitrariness
+        problem with a second invented constant. A deadline either has or
+        hasn't passed.
+
+        `respond_by` matches Razorpay's real Disputes API field name (a
+        Unix timestamp) -- see README's integration-points section. It's
+        optional: disputes_10k.csv has no respond_by column, so every
+        dispute processed by any script in this project is unaffected
+        unless a caller explicitly supplies one.
+        """
+        respond_by = dispute.get('respond_by')
+        if respond_by is None:
+            return None
+        now = datetime.now(timezone.utc).timestamp()
+        if now > respond_by:
+            return {
+                'decision': 'missed_deadline',
+                'explanation': (
+                    f"Response deadline (respond_by={int(respond_by)}) has already passed. "
+                    f"Razorpay's real API itself rejects a contest action past this point "
+                    f"('Action not allowed as deadline to respond has elapsed'), so no "
+                    f"scoring or drafting is attempted here either."
+                ),
+            }
+        return None
+
     # ---- orchestration + audit trail ---------------------------------------------
     def process(self, dispute: dict) -> dict:
         trail = {'dispute_id': dispute.get('dispute_id'),
@@ -194,6 +306,12 @@ class DisputePipeline:
         try:
             dispute = self.ingest(dispute)
             trail['stages']['ingestion'] = {'status': 'ok'}
+
+            deadline_result = self.check_deadline(dispute)
+            if deadline_result is not None:
+                trail['stages']['decision_gate'] = deadline_result
+                trail['final_decision'] = deadline_result['decision']
+                return trail
 
             reason_result = self.classify_reason(dispute)
             trail['stages']['reason_classification'] = reason_result
@@ -209,6 +327,7 @@ class DisputePipeline:
 
             evidence_result = self.retrieve_evidence(dispute, reason_result['reason_code'])
             trail['stages']['evidence_retrieval'] = evidence_result
+            trail['razorpay_decline_resolution_path'] = get_decline_resolution_path(reason_result['reason_code'])
 
             win_prob = self.score(dispute)
             trail['stages']['scoring'] = {'win_probability': round(win_prob, 4)}

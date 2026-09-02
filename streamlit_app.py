@@ -7,6 +7,7 @@ Run from the project root (same directory as model_artifacts/):
     streamlit run streamlit_app.py
 """
 import json
+from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 import streamlit as st
@@ -21,6 +22,7 @@ DECISION_COLOR = {
     'flag_ungrounded_narrative': '#9a6700',
     'flag_insufficient': '#57606a',
     'manual_review': '#cf222e',
+    'missed_deadline': '#cf222e',
 }
 DECISION_LABEL = {
     'submit': 'SUBMIT',
@@ -28,6 +30,7 @@ DECISION_LABEL = {
     'flag_ungrounded_narrative': 'FLAGGED -- ungrounded narrative',
     'flag_insufficient': 'FLAG AS INSUFFICIENT',
     'manual_review': 'ROUTE TO MANUAL REVIEW',
+    'missed_deadline': 'MISSED DEADLINE -- action rejected',
 }
 
 
@@ -83,6 +86,15 @@ else:
     for field in REASON_RELEVANT_FIELDS.get(reason_code, []):
         dispute[field] = int(st.sidebar.checkbox(field.replace('_', ' '), value=False))
 
+    st.sidebar.divider()
+    days_left = st.sidebar.slider(
+        "Days until response deadline (respond_by)", -5, 30, 10,
+        help="Negative = deadline already passed. Matches Razorpay's real API field name.",
+    )
+    dispute['respond_by'] = (datetime.now(timezone.utc) + timedelta(days=days_left)).timestamp()
+    if days_left < 0:
+        st.sidebar.warning(f"Deadline passed {abs(days_left)} day(s) ago -- gate will be skipped entirely.")
+
 st.sidebar.divider()
 if st.sidebar.button("Run a deliberately malformed dispute instead"):
     dispute = dict(dispute)
@@ -111,9 +123,12 @@ with col1:
 
     st.markdown(f"**1. Ingestion** -- {stages.get('ingestion', {}).get('status', '-')}")
 
-    rc = stages.get('reason_classification', {})
-    st.markdown(f"**2. Reason validation** -- `{rc.get('reason_code', '-')}` "
-                f"({'valid' if rc.get('valid') else 'UNRECOGNIZED'})")
+    rc = stages.get('reason_classification')
+    if rc is not None:
+        st.markdown(f"**2. Reason validation** -- `{rc.get('reason_code', '-')}` "
+                    f"({'valid' if rc.get('valid') else 'UNRECOGNIZED'})")
+    else:
+        st.caption("2. Reason validation -- not reached (stopped at an earlier stage)")
 
     if 'evidence_retrieval' in stages:
         ev = stages['evidence_retrieval']
@@ -137,6 +152,9 @@ with col1:
             st.info(gate['explanation'])
 
 with col2:
+    if 'razorpay_decline_resolution_path' in result:
+        st.caption(f"If not won: {result['razorpay_decline_resolution_path']}")
+
     if 'packet_drafting' in stages:
         st.subheader("Drafted evidence packet")
         packet = stages['packet_drafting']
@@ -146,12 +164,27 @@ with col2:
             st.success("Grounding check passed -- every number in the narrative traces to real evidence.")
         else:
             st.error(f"Grounding check FAILED -- ungrounded numbers: {grounding['ungrounded_numbers']}")
+
+        schema = packet.get('razorpay_evidence_schema')
+        if schema:
+            st.markdown("**Mapped to Razorpay's real Contest API evidence fields:**")
+            if schema['evidence_categories_present']:
+                for razorpay_field, source_fields in schema['evidence_categories_present'].items():
+                    st.markdown(f"- `{razorpay_field}` -- from: {', '.join(source_fields)}")
+            else:
+                st.caption("No evidence fields mapped to a submittable category.")
+            st.caption(
+                f"explanation_letter: {len(schema['explanation_letter'])}/"
+                f"{1000} chars"
+                + (" -- TRUNCATED to fit Razorpay's real limit" if schema['explanation_letter_truncated'] else "")
+            )
     elif 'error' in stages:
         st.subheader("Handled failure")
         st.warning(f"{stages['error']['type']}: {stages['error']['message']}")
     else:
         st.subheader("No packet drafted")
-        st.caption("This dispute did not clear the gate, so no evidence packet was generated.")
+        st.caption("This dispute either did not clear the gate or never reached it "
+                    "(e.g. an unrecognized reason code), so no evidence packet was generated.")
 
     st.subheader("Full audit trail")
     st.json(result, expanded=False)
