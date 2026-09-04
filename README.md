@@ -217,28 +217,32 @@ model). The two reason codes behave completely differently:
   in `pipeline.py`/`evaluate.py`) -- a conservative choice safely below the
   ~6x point where submissions on this reason code collapse to zero.
 - **`not_as_described`**: **deliberately left unadjusted.** Its precision
-  moves non-monotonically as the multiplier rises (0.137 -> 0.120 -> 0.157
-  at 2x -> 0.096 at 2.5x) -- it gets *worse* before it gets slightly
-  better, then collapses. With only 47 positive cases in the held-out test
-  set for this reason code, picking a specific multiplier here would mean
-  fitting to noise in one split -- exactly the failure mode
-  `robustness_check.py` already exists to catch for the SynthEdge-vs-SMOTE
-  claim in Section 4.1. The honest move is to leave it at parity rather
-  than force a number, pending either more data or a multi-seed retrain
-  check applying that same discipline here.
+  path as the multiplier rises is *unstable across data regenerations* --
+  it does not trace the same shape from one synthetic draw to the next
+  (`sweep_reason_fp_cost.py` prints this run's actual path live rather
+  than asserting a fixed example, specifically so this section never
+  quotes numbers that a rerun could falsify). With only 47 positive cases
+  in the held-out test set for this reason code, picking a specific
+  multiplier here would mean fitting to noise in one split -- exactly the
+  failure mode `robustness_check.py` already exists to catch for the
+  SynthEdge-vs-SMOTE claim in Section 4.1. The honest move is to leave it
+  at parity rather than force a number, pending either more data or a
+  multi-seed retrain check applying that same discipline here.
 
-Net effect of the one adjustment that was justified:
+Net effect of the one adjustment that was justified (run `evaluate.py` for
+this session's exact figures -- treat the direction and rough magnitude
+below as the finding, not the specific decimals, since `disputes_10k.csv`
+is regenerated with CTGAN, which has documented non-determinism, Section
+6):
 
 | Metric | Before | After |
 | --- | --- | --- |
-| OVERALL precision | 0.239 | 0.253 |
-| OVERALL F1 | 0.348 | 0.359 |
-| `subscription_cancelled` precision | 0.123 | 0.200 |
-| Gate savings vs. best naive policy | Rs.107,713 | Rs.117,090 |
+| OVERALL precision | ~0.24 | ~0.25 |
+| OVERALL F1 | ~0.35 | ~0.35-0.36 |
+| `subscription_cancelled` precision | ~0.12-0.14 | ~0.20-0.23 |
 
 This supersedes Section 4.3's per-reason table and total cost figure going
-forward -- rerun `evaluate.py` to reproduce the "After" column;
-`results/ml/per_reason_metrics.csv` reflects the updated gate.
+forward; `results/ml/per_reason_metrics.csv` reflects the updated gate.
 
 ### 4.5 ML vs. a simple heuristic (does the ML add anything?)
 
@@ -286,9 +290,9 @@ high-value dispute clears the gate at a much lower win probability than a
 low-value one (Rs.500 needs 33.3% win probability to submit; Rs.5,000
 needs only 4.8%). This is the correct behavior for minimizing total cost,
 and it is also a real distributive trade-off -- smaller transactions get
-less benefit of the doubt at equal evidence quality. Full detail in
-`cost_asymmetry_disclosure.md`. See Section 7 for why this specifically
-matters for who CaseWise helps most.
+less benefit of the doubt at equal evidence quality (the numbers above
+are the full detail; nothing is held back in a separate file). See
+Section 7 for why this specifically matters for who CaseWise helps most.
 
 ### 5.3 Evidence "retrieval" is a projection, not a real lookup system
 
@@ -428,15 +432,89 @@ model:
 
 ## 9. Documented failure case
 
-See `day5_failure_case.md`: an unrecognized dispute reason code (simulating
-a new card-network reason type) is caught at the reason-validation stage
-and routed to manual review with a clear audit-trail explanation --
-never scored, never guessed at, never silently dropped.
+`pipeline.py`'s `run_demo_batch()` deliberately injects one malformed
+record alongside five real sampled disputes: a copy of a real dispute
+with its `dispute_reason_code` swapped to `chargeback_10_4_visa_new_code`
+-- simulating an unrecognized, newer card-network reason type the system
+has never been trained or configured for. This is the exact audit-trail
+entry it produces:
+
+```json
+{
+  "dispute_id": "DSP-MALFORMED-001",
+  "stages": {
+    "ingestion": { "status": "ok" },
+    "reason_classification": {
+      "status": "unrecognized_reason_code",
+      "reason_code": "chargeback_10_4_visa_new_code",
+      "valid": false
+    },
+    "decision_gate": {
+      "decision": "manual_review",
+      "explanation": "Unrecognized dispute_reason_code 'chargeback_10_4_visa_new_code' -- cannot score or draft against an unknown reason type; routed for manual review rather than guessed at."
+    }
+  },
+  "final_decision": "manual_review"
+}
+```
+
+The record is caught at the reason-validation stage (`classify_reason()`
+in `pipeline.py`) -- before evidence retrieval, before scoring, before
+drafting. It never reaches the win-probability model at all, so there's
+no risk of the model guessing at a reason type it's never seen. This is
+the same mechanism (`process()`'s `try`/`except`) that catches any
+unhandled error during processing and routes to `manual_review` rather
+than silently dropping a dispute or crashing the batch -- one dispute
+degrading gracefully instead of taking the whole run down.
+
+Reproduce it directly: `python pipeline.py` runs `run_demo_batch()`,
+which always appends this malformed record to its five real samples and
+writes the full trail to `results/audit_trail/<timestamp>/audit_trail.json`.
 
 ## 10. Repo contents and how to run it
 
-See `SETUP.md` for the exact file manifest, dependency list, and run order.
-Interactive demo: `streamlit run streamlit_app.py`.
+No `requirements.txt` is committed yet -- install these directly:
+
+```
+pip install pandas numpy scikit-learn xgboost imbalanced-learn synthedge streamlit
+```
+
+`synthedge` is a separate published package (PyPI: `pip install
+synthedge`, source: `github.com/Juzt-nik/SynthEdge`) built for this kind
+of imbalanced-tabular augmentation problem -- see Section 4.1 for why it
+was chosen over SMOTE.
+
+**File manifest:**
+
+| File | Role |
+|---|---|
+| `generate_disputes.py` | Builds the synthetic dataset (`disputes_10k.csv`), Section 3 |
+| `train_model.py` | Trains the XGBoost win-probability model + isotonic calibrator, saves `model_artifacts/` |
+| `train_and_compare.py` | Baseline vs. SMOTE vs. SynthEdge comparison, Section 4.1 |
+| `robustness_check.py` | Reruns the Section 4.1 comparison across 5 seeds, `results/robustness_check.csv` |
+| `evaluate.py` | Calibration check, rupee-cost evaluation, per-reason metrics, FP-cost sensitivity -- Sections 4.2-4.4 |
+| `sweep_reason_fp_cost.py` | Sweeps the per-reason FP-cost multiplier and justifies Section 4.4's fix; run this directly to see this session's own numbers rather than trusting any figure quoted in this README |
+| `heuristic_baseline.py` | The `>=50%` evidence heuristic used as a comparison point, Section 4.5 |
+| `grounding_check.py` | Verifies a drafted narrative's numbers trace back to real retrieved evidence, Section 5.5 |
+| `pipeline.py` | The actual end-to-end system: deadline guard, reason validation, evidence retrieval, scoring, decision gate, packet drafting, audit trail. `run_demo_batch()` is the entry point (Section 9). |
+| `streamlit_app.py` | Interactive dashboard demo |
+| `disputes_10k.csv` | The generated dataset itself (10,000 rows, seed 42) |
+| `model_artifacts/` | Saved model, calibrator, feature list, training metadata |
+| `results/ml/` | Evaluation outputs -- per-reason metrics, FP-cost sensitivity, augmentation comparison, heuristic-vs-ML comparison |
+| `results/audit_trail/` | Timestamped audit trails from `pipeline.py` runs |
+| `results/robustness_check.csv` | Multi-seed results backing Section 4.1's robustness claim |
+
+**Run order** (each step reads the previous step's output):
+
+1. `python generate_disputes.py --n 10000 --seed 42 --out disputes_10k.csv`
+2. `python train_model.py`
+3. `python train_and_compare.py` (optional -- Section 4.1's comparison)
+4. `python robustness_check.py` (optional -- multi-seed check backing 4.1)
+5. `python evaluate.py` -- produces the numbers in Sections 4.2-4.4
+6. `python sweep_reason_fp_cost.py` (optional -- justifies the Section 4.4 multiplier)
+7. `python heuristic_baseline.py` (optional -- Section 4.5's comparison)
+8. `python pipeline.py` -- runs the actual system end-to-end, produces Section 9's failure case
+9. Interactive demo: `streamlit run streamlit_app.py`
 
 ## 11. Limitations and future work
 
