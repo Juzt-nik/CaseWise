@@ -27,4 +27,4 @@ Thumbs.db
 
 # NOTE: model_artifacts/, results/, and disputes_10k.csv are intentionally
 # NOT ignored -- they're committed as evidence for the numbers in README.md,
-# not regenerated build output.
+# not regenerated build output

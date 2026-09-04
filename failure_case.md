@@ -30,7 +30,7 @@ with a plain-language explanation logged in the audit trail:
 > score or draft against an unknown reason type; routed for manual review
 > rather than guessed at.
 
-The full audit trail entry (`results/day4/audit_trail.json`) shows the
+The full audit trail entry (`results/audit_trail/audit_trail.json`) shows the
 `ingestion` stage completed normally and the `reason_classification` stage
 is where the failure was caught -- evidence retrieval, scoring, and packet
 drafting never ran for this dispute, since none of those stages are
@@ -47,7 +47,7 @@ track's evaluation bar asks for.
 
 ## A second example of the same pattern
 
-This is the deliberately-constructed failure case for Day 5, but it isn't
+This is the deliberately-constructed failure case for Phrase 5, but it isn't
 the only place the pipeline fails closed rather than guessing. `pipeline.py`
 also includes a deadline guard (`check_deadline`): if a dispute's response
 deadline (`respond_by`) has already passed, the pipeline stops immediately

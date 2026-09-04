@@ -1,21 +1,20 @@
 # Setup -- CaseWise
-
 ## Files you need (final versions only)
 
 ```
-disputes_10k.csv              (Day 1 dataset)
-generate_disputes.py          (Day 1 generator -- only needed if regenerating data)
+disputes_10k.csv              (Phrase 1 dataset)
+generate_disputes.py          (Phrase 1 generator -- only needed if regenerating data)
 train_model.py                (trains + calibrates + saves model_artifacts/)
-train_and_compare.py          (Day 2 -- baseline vs SMOTE vs SynthEdge)
-evaluate.py                   (Day 3)
-heuristic_baseline.py         (Day 3/6 -- ML vs heuristic)
-pipeline.py                   (Day 4)
+train_and_compare.py          (Phrase 2 -- baseline vs SMOTE vs SynthEdge)
+evaluate.py                   (Phrase 3)
+heuristic_baseline.py         (Phrase 3/6 -- ML vs heuristic)
+pipeline.py                   (Phrase 4)
 grounding_check.py            (imported by pipeline.py -- must sit next to it)
-robustness_check.py           (multi-seed check on the Day 2 finding)
-streamlit_app.py              (Day 6 demo -- imports pipeline.py directly)
+robustness_check.py           (multi-seed check on the Phrase 2 finding)
+streamlit_app.py              (Phrase 6 demo -- imports pipeline.py directly)
 README.md
 SETUP.md
-day5_failure_case.md
+failure_case.md
 cost_asymmetry_disclosure.md
 .gitignore
 
@@ -29,7 +28,7 @@ model_artifacts/
 All `.py` files and `disputes_10k.csv` go in one project root directory.
 `model_artifacts/` is a subfolder of that same root.
 
-**Note on naming:** `train_and_compare.py` is the Day 2 comparison script
+**Note on naming:** `train_and_compare.py` is the Phrase 2 comparison script
 (baseline vs. SMOTE vs. SynthEdge, three-way split reconciled with
 production). If you have an earlier copy of a file with this same name
 from before the SynthEdge API was confirmed against the real package, it
@@ -91,7 +90,7 @@ python evaluate.py
 python heuristic_baseline.py
 python pipeline.py
 
-# Multi-seed robustness check on the Day 2 finding (takes longer -- trains
+# Multi-seed robustness check on the Phrase 2 finding (takes longer -- trains
 # baseline/SMOTE/SynthEdge across 5 different splits)
 python robustness_check.py
 
