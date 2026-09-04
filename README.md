@@ -121,6 +121,24 @@ the two hardest, most subjective reason codes, never once catching a
 winnable case there. SynthEdge, adding only 17 rows, is the only method
 that improves recall specifically where it's hardest to.
 
+**This was verified across 5 different random train/test splits, not just
+the one shown above (`robustness_check.py`, `results/robustness_check.csv`).**
+SMOTE's failure on `not_as_described` is exactly 0.000 recall in all 5
+seeds tested, zero variance -- robust, not a fluke of one particular split.
+`subscription_cancelled` is nearly as consistent: 0.000 in 4 of 5 seeds.
+
+The precise, verified claim about SynthEdge is narrower than it might look
+from the single split above: across the 5 seeds, SynthEdge's recall on
+`not_as_described` was **identical to baseline in every single seed** --
+it doesn't improve this reason code, it simply doesn't damage it, unlike
+SMOTE. On `subscription_cancelled` the picture is a genuine mixed bag
+(better in 2 seeds, worse in 2, roughly even in 1). The defensible
+headline is therefore: **SynthEdge preserves baseline-level recall on the
+hardest reason codes; SMOTE catastrophically destroys it.** That's a
+smaller claim than "SynthEdge improves recall where it's hardest," but
+it's the one that actually survives a multi-seed check rather than one
+that might not survive a judge running their own.
+
 ### 4.2 Probability calibration (Day 4/6)
 
 The raw XGBoost model (trained with `scale_pos_weight` to handle class

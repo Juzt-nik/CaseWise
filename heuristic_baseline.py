@@ -74,6 +74,6 @@ for r, g in res.groupby('reason'):
     per_reason_rows.append({'reason': r, 'n_positive': len(pos),
                              'heuristic_recall': round(h_rec, 3), 'ml_recall': round(m_rec, 3)})
 
-pd.DataFrame(rows).to_csv('results/day3/heuristic_vs_ml.csv', index=False)
-pd.DataFrame(per_reason_rows).to_csv('results/day3/heuristic_vs_ml_per_reason.csv', index=False)
-print("\nSaved -> results/day3/heuristic_vs_ml.csv, heuristic_vs_ml_per_reason.csv")
+pd.DataFrame(rows).to_csv('results/ml/heuristic_vs_ml.csv', index=False)
+pd.DataFrame(per_reason_rows).to_csv('results/ml/heuristic_vs_ml_per_reason.csv', index=False)
+print("\nSaved -> results/ml/heuristic_vs_ml.csv, heuristic_vs_ml_per_reason.csv")

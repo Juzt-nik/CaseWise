@@ -1,8 +1,0 @@
-reason,n,n_positive,precision,recall,f1,fn_cost_inr,fp_cost_inr
-credit_not_processed,275,49,0.241,0.571,0.339,20846.03,22000.0
-duplicate_charge,197,57,0.505,0.895,0.646,5849.95,12500.0
-fraud,447,85,0.231,0.647,0.341,25822.86,45750.0
-item_not_received,556,97,0.237,0.68,0.352,27990.52,53000.0
-not_as_described,368,47,0.112,0.34,0.168,28174.82,31750.0
-subscription_cancelled,157,23,0.15,0.522,0.233,10656.88,17000.0
-OVERALL,2000,358,0.238,0.637,0.347,119341.06,182000.0

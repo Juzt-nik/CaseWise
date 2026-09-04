@@ -1,5 +1,5 @@
 """
-Day 4 -- end-to-end dispute pipeline.
+Phrase 4 -- end-to-end dispute pipeline.
 
 Stages: ingest -> classify_reason -> retrieve_evidence -> score
         -> decision_gate -> draft_packet, all logged to an audit trail.
@@ -397,7 +397,7 @@ def run_demo_batch():
     pipeline = DisputePipeline()
     results = [pipeline.process(d) for d in sample] + [pipeline.process(malformed)]
 
-    out_dir = Path('results/day4')
+    out_dir = Path('results/audit_trail') / datetime.now().strftime('%Y%m%d_%H%M%S')
     out_dir.mkdir(parents=True, exist_ok=True)
     with open(out_dir / 'audit_trail.json', 'w') as f:
         json.dump(results, f, indent=2, default=str)
