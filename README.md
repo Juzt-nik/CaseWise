@@ -88,8 +88,8 @@ disclosed as a deliberate, stated design choice, not a hidden gap.
 
 ## 4. Results
 
-All numbers below are from `model_artifacts/training_meta.json`,
-`results/day3/`, and `results/day2_full_output.txt`. Re-running these
+All numbers below are from `model_artifacts/training_meta.json` and
+`results/ml/`. Re-running these
 scripts may shift figures slightly (SynthEdge's CTGAN step has a known,
 partially-mitigated non-determinism -- see Section 6); treat these as the
 result of one specific, reproducible run, not guaranteed-exact constants.
