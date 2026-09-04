@@ -1,6 +1,6 @@
 {
   "synthedge_severity": "SEVERE",
-  "rows_added_by_synthedge": 16,
+  "rows_added_by_synthedge": 19,
   "training_rows": 6400,
   "calibration_rows": 1600,
   "test_rows": 2000,
@@ -12,8 +12,8 @@
     "not_as_described",
     "subscription_cancelled"
   ],
-  "brier_score_raw_uncalibrated": 0.19,
-  "brier_score_calibrated": 0.1277,
+  "brier_score_raw_uncalibrated": 0.1913,
+  "brier_score_calibrated": 0.127,
   "brier_score_base_rate_baseline": 0.147,
   "calibration_note": "Raw XGBoost probabilities (scale_pos_weight-adjusted) were WORSE than the base-rate baseline -- badly overconfident, not usable as true probabilities. Isotonic calibration on a real, unaugmented, held-out split fixes this; use the calibrator, not raw predict_proba, for any cost-based decision."
 }

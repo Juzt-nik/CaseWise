@@ -1,0 +1,6 @@
+seed,baseline_overall,smote_overall,synthedge_overall,baseline_not_as_described,smote_not_as_described,synthedge_not_as_described,baseline_subscription_cancelled,smote_subscription_cancelled,synthedge_subscription_cancelled
+42,0.581,0.162,0.575,0.213,0.0,0.234,0.261,0.0,0.261
+7,0.598,0.187,0.606,0.17,0.0,0.128,0.391,0.0,0.565
+123,0.55,0.145,0.542,0.277,0.0,0.277,0.304,0.0,0.304
+2024,0.547,0.14,0.553,0.234,0.0,0.213,0.391,0.0,0.609
+99,0.564,0.159,0.55,0.298,0.0,0.298,0.435,0.043,0.391

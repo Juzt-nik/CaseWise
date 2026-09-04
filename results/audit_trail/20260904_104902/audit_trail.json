@@ -1,0 +1,289 @@
+[
+  {
+    "dispute_id": "DSP101977",
+    "timestamp": "2026-09-04T05:19:02.610508+00:00",
+    "stages": {
+      "ingestion": {
+        "status": "ok"
+      },
+      "reason_classification": {
+        "status": "ok",
+        "reason_code": "subscription_cancelled",
+        "valid": true
+      },
+      "evidence_retrieval": {
+        "relevant_fields": [
+          "subscription_cancellation_confirmed"
+        ],
+        "evidence": {
+          "subscription_cancellation_confirmed": 0
+        },
+        "missing_fields": []
+      },
+      "scoring": {
+        "win_probability": 0.3436
+      },
+      "decision_gate": {
+        "decision": "submit_with_caveat",
+        "win_probability": 0.3436,
+        "breakeven_probability": 0.1253,
+        "expected_fn_cost_inr": 599.61,
+        "expected_fp_cost_inr": 164.1,
+        "explanation": "Win probability 0.34 clears the break-even point for this transaction amount, but none of the reason-specific evidence fields (subscription_cancellation_confirmed) are present or true -- the score is likely driven by other account/transaction signals. Flagged for human review before submission rather than auto-submitted."
+      },
+      "packet_drafting": {
+        "dispute_id": "DSP101977",
+        "reason_code": "subscription_cancelled",
+        "transaction_id": "TXN201977",
+        "transaction_amount_inr": 1745.12,
+        "evidence_summary": {
+          "subscription_cancellation_confirmed": 0
+        },
+        "narrative": "No supporting evidence on file for this subscription cancelled dispute.",
+        "grounding_check": {
+          "grounded": true,
+          "ungrounded_numbers": [],
+          "evidence_numbers_available": [
+            "0"
+          ]
+        },
+        "razorpay_evidence_schema": {
+          "evidence_categories_present": {},
+          "explanation_letter": "No supporting evidence on file for this subscription cancelled dispute.",
+          "explanation_letter_truncated": false,
+          "evidence_fields_without_a_schema_mapping": []
+        }
+      }
+    },
+    "razorpay_decline_resolution_path": "Non-fraud-reason dispute: per Razorpay's process, if not contested (or contested and lost), Razorpay auto-refunds the customer -- no manual merchant action required.",
+    "final_decision": "submit_with_caveat"
+  },
+  {
+    "dispute_id": "DSP103880",
+    "timestamp": "2026-09-04T05:19:02.621614+00:00",
+    "stages": {
+      "ingestion": {
+        "status": "ok"
+      },
+      "reason_classification": {
+        "status": "ok",
+        "reason_code": "duplicate_charge",
+        "valid": true
+      },
+      "evidence_retrieval": {
+        "relevant_fields": [
+          "duplicate_transaction_exists"
+        ],
+        "evidence": {
+          "duplicate_transaction_exists": 0
+        },
+        "missing_fields": []
+      },
+      "scoring": {
+        "win_probability": 0.0936
+      },
+      "decision_gate": {
+        "decision": "submit_with_caveat",
+        "win_probability": 0.0936,
+        "breakeven_probability": 0.0927,
+        "expected_fn_cost_inr": 228.98,
+        "expected_fp_cost_inr": 226.6,
+        "explanation": "Win probability 0.09 clears the break-even point for this transaction amount, but none of the reason-specific evidence fields (duplicate_transaction_exists) are present or true -- the score is likely driven by other account/transaction signals. Flagged for human review before submission rather than auto-submitted."
+      },
+      "packet_drafting": {
+        "dispute_id": "DSP103880",
+        "reason_code": "duplicate_charge",
+        "transaction_id": "TXN203880",
+        "transaction_amount_inr": 2445.87,
+        "evidence_summary": {
+          "duplicate_transaction_exists": 0
+        },
+        "narrative": "No supporting evidence on file for this duplicate charge dispute.",
+        "grounding_check": {
+          "grounded": true,
+          "ungrounded_numbers": [],
+          "evidence_numbers_available": [
+            "0"
+          ]
+        },
+        "razorpay_evidence_schema": {
+          "evidence_categories_present": {},
+          "explanation_letter": "No supporting evidence on file for this duplicate charge dispute.",
+          "explanation_letter_truncated": false,
+          "evidence_fields_without_a_schema_mapping": []
+        }
+      }
+    },
+    "razorpay_decline_resolution_path": "Non-fraud-reason dispute: per Razorpay's process, if not contested (or contested and lost), Razorpay auto-refunds the customer -- no manual merchant action required.",
+    "final_decision": "submit_with_caveat"
+  },
+  {
+    "dispute_id": "DSP100052",
+    "timestamp": "2026-09-04T05:19:02.631641+00:00",
+    "stages": {
+      "ingestion": {
+        "status": "ok"
+      },
+      "reason_classification": {
+        "status": "ok",
+        "reason_code": "credit_not_processed",
+        "valid": true
+      },
+      "evidence_retrieval": {
+        "relevant_fields": [
+          "refund_already_processed",
+          "refund_processed_before_dispute"
+        ],
+        "evidence": {
+          "refund_already_processed": 0,
+          "refund_processed_before_dispute": 0
+        },
+        "missing_fields": []
+      },
+      "scoring": {
+        "win_probability": 0.0936
+      },
+      "decision_gate": {
+        "decision": "flag_insufficient",
+        "win_probability": 0.0936,
+        "breakeven_probability": 0.1869,
+        "expected_fn_cost_inr": 101.82,
+        "expected_fp_cost_inr": 226.6,
+        "explanation": "Win probability 0.09 doesn't clear the break-even point (0.187) for this dispute's transaction amount. Weak/absent evidence: refund_already_processed, refund_processed_before_dispute."
+      }
+    },
+    "razorpay_decline_resolution_path": "Non-fraud-reason dispute: per Razorpay's process, if not contested (or contested and lost), Razorpay auto-refunds the customer -- no manual merchant action required.",
+    "final_decision": "flag_insufficient"
+  },
+  {
+    "dispute_id": "DSP102551",
+    "timestamp": "2026-09-04T05:19:02.642491+00:00",
+    "stages": {
+      "ingestion": {
+        "status": "ok"
+      },
+      "reason_classification": {
+        "status": "ok",
+        "reason_code": "item_not_received",
+        "valid": true
+      },
+      "evidence_retrieval": {
+        "relevant_fields": [
+          "delivery_proof_available",
+          "tracking_number_valid",
+          "signature_confirmation",
+          "delivery_confirmed_before_dispute"
+        ],
+        "evidence": {
+          "delivery_proof_available": 0,
+          "tracking_number_valid": 0,
+          "signature_confirmation": 0,
+          "delivery_confirmed_before_dispute": 0
+        },
+        "missing_fields": []
+      },
+      "scoring": {
+        "win_probability": 0.0936
+      },
+      "decision_gate": {
+        "decision": "submit_with_caveat",
+        "win_probability": 0.0936,
+        "breakeven_probability": 0.0774,
+        "expected_fn_cost_inr": 278.83,
+        "expected_fp_cost_inr": 226.6,
+        "explanation": "Win probability 0.09 clears the break-even point for this transaction amount, but none of the reason-specific evidence fields (delivery_proof_available, tracking_number_valid, signature_confirmation, delivery_confirmed_before_dispute) are present or true -- the score is likely driven by other account/transaction signals. Flagged for human review before submission rather than auto-submitted."
+      },
+      "packet_drafting": {
+        "dispute_id": "DSP102551",
+        "reason_code": "item_not_received",
+        "transaction_id": "TXN202551",
+        "transaction_amount_inr": 2978.36,
+        "evidence_summary": {
+          "delivery_proof_available": 0,
+          "tracking_number_valid": 0,
+          "signature_confirmation": 0,
+          "delivery_confirmed_before_dispute": 0
+        },
+        "narrative": "No supporting evidence on file for this item not received dispute.",
+        "grounding_check": {
+          "grounded": true,
+          "ungrounded_numbers": [],
+          "evidence_numbers_available": [
+            "0"
+          ]
+        },
+        "razorpay_evidence_schema": {
+          "evidence_categories_present": {},
+          "explanation_letter": "No supporting evidence on file for this item not received dispute.",
+          "explanation_letter_truncated": false,
+          "evidence_fields_without_a_schema_mapping": [
+            "delivery_confirmed_before_dispute"
+          ]
+        }
+      }
+    },
+    "razorpay_decline_resolution_path": "Non-fraud-reason dispute: per Razorpay's process, if not contested (or contested and lost), Razorpay auto-refunds the customer -- no manual merchant action required.",
+    "final_decision": "submit_with_caveat"
+  },
+  {
+    "dispute_id": "DSP102246",
+    "timestamp": "2026-09-04T05:19:02.654441+00:00",
+    "stages": {
+      "ingestion": {
+        "status": "ok"
+      },
+      "reason_classification": {
+        "status": "ok",
+        "reason_code": "item_not_received",
+        "valid": true
+      },
+      "evidence_retrieval": {
+        "relevant_fields": [
+          "delivery_proof_available",
+          "tracking_number_valid",
+          "signature_confirmation",
+          "delivery_confirmed_before_dispute"
+        ],
+        "evidence": {
+          "delivery_proof_available": 1,
+          "tracking_number_valid": 0,
+          "signature_confirmation": 0,
+          "delivery_confirmed_before_dispute": 1
+        },
+        "missing_fields": []
+      },
+      "scoring": {
+        "win_probability": 0.122
+      },
+      "decision_gate": {
+        "decision": "flag_insufficient",
+        "win_probability": 0.122,
+        "breakeven_probability": 0.1817,
+        "expected_fn_cost_inr": 137.35,
+        "expected_fp_cost_inr": 219.51,
+        "explanation": "Win probability 0.12 doesn't clear the break-even point (0.182) for this dispute's transaction amount. Weak/absent evidence: tracking_number_valid, signature_confirmation."
+      }
+    },
+    "razorpay_decline_resolution_path": "Non-fraud-reason dispute: per Razorpay's process, if not contested (or contested and lost), Razorpay auto-refunds the customer -- no manual merchant action required.",
+    "final_decision": "flag_insufficient"
+  },
+  {
+    "dispute_id": "DSP-MALFORMED-001",
+    "timestamp": "2026-09-04T05:19:02.666777+00:00",
+    "stages": {
+      "ingestion": {
+        "status": "ok"
+      },
+      "reason_classification": {
+        "status": "unrecognized_reason_code",
+        "reason_code": "chargeback_10_4_visa_new_code",
+        "valid": false
+      },
+      "decision_gate": {
+        "decision": "manual_review",
+        "explanation": "Unrecognized dispute_reason_code 'chargeback_10_4_visa_new_code' -- cannot score or draft against an unknown reason type; routed for manual review rather than guessed at."
+      }
+    },
+    "final_decision": "manual_review"
+  }
+]
