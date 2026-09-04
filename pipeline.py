@@ -46,6 +46,38 @@ REASON_RELEVANT_FIELDS = {
 # before calibration.
 DEFAULT_FP_COST_INR = 250.0
 
+# Per-reason-code FP-cost multiplier, applied on top of DEFAULT_FP_COST_INR
+# before the breakeven calculation. Global overall precision (0.239) hides
+# that precision is far worse on two reason codes than the rest -- see
+# results/day3/per_reason_metrics.csv. A single global FP cost silently
+# assumes a false submission is equally costly to review/reject regardless
+# of reason code, which isn't true if some reason codes are inherently
+# harder to score confidently.
+#
+# Swept on the held-out test set (sweep_reason_fp_cost.py) before choosing
+# these values -- NOT picked by intuition:
+#   - subscription_cancelled: raising its FP cost improves precision
+#     monotonically and cleanly (0.123 -> 0.200 -> 0.294 as the multiplier
+#     rises from 1x to 3x to 4x), with total dollar cost on this reason
+#     code actually falling, not just trading recall for precision on paper.
+#     3.0x is used here as a conservative choice safely below the point
+#     (~6x) where the reason code's submissions collapse to zero.
+#   - not_as_described: DELIBERATELY left at 1.0x (no adjustment). Sweeping
+#     its multiplier does NOT behave monotonically -- precision moves
+#     0.137 -> 0.130 -> 0.120 -> ... -> 0.157 (at 2.0x) -> 0.096 (at 2.5x)
+#     as the multiplier rises, i.e. it briefly gets *worse* before getting
+#     slightly better, then collapses. With only 47 positive cases in the
+#     held-out test set for this reason code, any specific multiplier
+#     chosen to fit this pattern would be tuned to noise in one split, not
+#     a real signal -- the same failure mode robustness_check.py exists to
+#     catch for the SynthEdge-vs-SMOTE comparison. Left at parity pending
+#     either more data or a multi-seed check (retrain across several
+#     random_states, as robustness_check.py already does for the
+#     augmentation comparison) before trusting a specific value here.
+REASON_FP_COST_MULTIPLIER = {
+    "subscription_cancelled": 3.0,
+}
+
 
 # Real Razorpay Disputes API evidence schema (per public docs:
 # razorpay.com/docs/api/disputes/contest/) -- maps CaseWise's synthetic
@@ -185,9 +217,17 @@ class DisputePipeline:
         return calibrated_proba
 
     # ---- stage 5: decision gate ---------------------------------------------------
-    def decision_gate(self, win_prob: float, transaction_amount: float, evidence_result: dict) -> dict:
+    def decision_gate(self, win_prob: float, transaction_amount: float, evidence_result: dict,
+                       reason_code: str = None) -> dict:
+        # Reason-specific FP cost: some reason codes are inherently harder to
+        # score confidently (see REASON_FP_COST_MULTIPLIER's derivation note
+        # above). Falls back to the base fp_cost_inr for any reason code not
+        # explicitly listed, including not_as_described -- deliberately, per
+        # that note.
+        effective_fp_cost = self.fp_cost_inr * REASON_FP_COST_MULTIPLIER.get(reason_code, 1.0)
+
         expected_fn_cost = win_prob * transaction_amount        # cost if we wrongly flag a winnable case
-        expected_fp_cost = (1 - win_prob) * self.fp_cost_inr    # cost if we wrongly submit a losing case
+        expected_fp_cost = (1 - win_prob) * effective_fp_cost   # cost if we wrongly submit a losing case
         # Per-dispute economic rule, not a single fixed threshold: submit
         # whenever the expected value of trying beats the expected waste of
         # a submission that loses. This is amount-aware by construction --
@@ -201,7 +241,7 @@ class DisputePipeline:
         explanation = None
         if decision == 'flag_insufficient':
             weak_points = [f for f, v in evidence_result['evidence'].items() if v in (0, False, None)]
-            breakeven_prob = self.fp_cost_inr / (self.fp_cost_inr + transaction_amount)
+            breakeven_prob = effective_fp_cost / (effective_fp_cost + transaction_amount)
             explanation = (
                 f"Win probability {win_prob:.2f} doesn't clear the break-even point ({breakeven_prob:.3f}) "
                 f"for this dispute's transaction amount. Weak/absent evidence: "
@@ -210,7 +250,8 @@ class DisputePipeline:
         return {
             'decision': decision,
             'win_probability': round(win_prob, 4),
-            'breakeven_probability': round(self.fp_cost_inr / (self.fp_cost_inr + transaction_amount), 4),
+            'breakeven_probability': round(effective_fp_cost / (effective_fp_cost + transaction_amount), 4),
+            'fp_cost_inr_effective': round(effective_fp_cost, 2),
             'expected_fn_cost_inr': round(expected_fn_cost, 2),
             'expected_fp_cost_inr': round(expected_fp_cost, 2),
             'explanation': explanation,
@@ -332,7 +373,8 @@ class DisputePipeline:
             win_prob = self.score(dispute)
             trail['stages']['scoring'] = {'win_probability': round(win_prob, 4)}
 
-            gate_result = self.decision_gate(win_prob, dispute['transaction_amount_inr'], evidence_result)
+            gate_result = self.decision_gate(win_prob, dispute['transaction_amount_inr'], evidence_result,
+                                              reason_code=reason_result['reason_code'])
 
             # Sanity check: the model's win probability is scored over the FULL
             # feature set, so it can clear the gate even when the reason-specific

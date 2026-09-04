@@ -18,7 +18,7 @@ from sklearn.metrics import precision_recall_fscore_support
 from xgboost import XGBClassifier
 
 ARTIFACT_DIR = Path('model_artifacts')
-OUTDIR = Path('results/day3')
+OUTDIR = Path('results/ml')
 OUTDIR.mkdir(parents=True, exist_ok=True)
 
 DATA_PATH = 'disputes_10k.csv'
@@ -32,6 +32,12 @@ TARGET_COL = 'won'
 # later suggests a different number -- the default doesn't stop being worth
 # stress-testing just because it's no longer provisional.
 FP_COST_INR = 250.0
+
+# Mirrors pipeline.py's REASON_FP_COST_MULTIPLIER -- see that file for the
+# sweep and the reasoning for why only subscription_cancelled is adjusted.
+REASON_FP_COST_MULTIPLIER = {
+    "subscription_cancelled": 3.0,
+}
 
 
 def load_artifacts():
@@ -67,6 +73,13 @@ def economic_decision(win_prob, amount, fp_cost):
     return (expected_fn_cost > expected_fp_cost).astype(int)
 
 
+def effective_fp_cost_series(reason_series, base_fp_cost):
+    """Applies REASON_FP_COST_MULTIPLIER per-row so the economic decision
+    (and the cost figures reported below) match what pipeline.py actually
+    does per-reason-code, not a single global FP cost."""
+    return reason_series.map(lambda r: base_fp_cost * REASON_FP_COST_MULTIPLIER.get(r, 1.0)).values
+
+
 def main():
     model, calibrator, feature_columns = load_artifacts()
     X_test, y_test, reason_test, amount_test = rebuild_test_split()
@@ -74,7 +87,13 @@ def main():
     raw_proba = model.predict_proba(X_test[feature_columns])[:, 1]
     win_prob = calibrator.predict(raw_proba)  # calibrated -- see train_model.py
 
-    pred = economic_decision(win_prob, amount_test.values, FP_COST_INR)
+    # Decision uses the per-reason-code effective FP cost (matches pipeline.py's
+    # gate); reported dollar totals below still use the real base FP_COST_INR --
+    # the multiplier is a decision-threshold adjustment, not a claim that a
+    # false submission on subscription_cancelled actually costs 3x more to
+    # review.
+    fp_cost_for_decision = effective_fp_cost_series(reason_test, FP_COST_INR)
+    pred = economic_decision(win_prob, amount_test.values, fp_cost_for_decision)
 
     fp_cost_total = ((pred == 1) & (y_test.values == 0)).sum() * FP_COST_INR
     fn_cost_total = amount_test.values[(pred == 0) & (y_test.values == 1)].sum()

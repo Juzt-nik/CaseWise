@@ -1,7 +1,7 @@
 [
   {
     "dispute_id": "DSP101977",
-    "timestamp": "2026-09-04T05:19:02.610508+00:00",
+    "timestamp": "2026-09-04T06:10:33.506669+00:00",
     "stages": {
       "ingestion": {
         "status": "ok"
@@ -21,46 +21,24 @@
         "missing_fields": []
       },
       "scoring": {
-        "win_probability": 0.3436
+        "win_probability": 0.2439
       },
       "decision_gate": {
-        "decision": "submit_with_caveat",
-        "win_probability": 0.3436,
-        "breakeven_probability": 0.1253,
-        "expected_fn_cost_inr": 599.61,
-        "expected_fp_cost_inr": 164.1,
-        "explanation": "Win probability 0.34 clears the break-even point for this transaction amount, but none of the reason-specific evidence fields (subscription_cancellation_confirmed) are present or true -- the score is likely driven by other account/transaction signals. Flagged for human review before submission rather than auto-submitted."
-      },
-      "packet_drafting": {
-        "dispute_id": "DSP101977",
-        "reason_code": "subscription_cancelled",
-        "transaction_id": "TXN201977",
-        "transaction_amount_inr": 1745.12,
-        "evidence_summary": {
-          "subscription_cancellation_confirmed": 0
-        },
-        "narrative": "No supporting evidence on file for this subscription cancelled dispute.",
-        "grounding_check": {
-          "grounded": true,
-          "ungrounded_numbers": [],
-          "evidence_numbers_available": [
-            "0"
-          ]
-        },
-        "razorpay_evidence_schema": {
-          "evidence_categories_present": {},
-          "explanation_letter": "No supporting evidence on file for this subscription cancelled dispute.",
-          "explanation_letter_truncated": false,
-          "evidence_fields_without_a_schema_mapping": []
-        }
+        "decision": "flag_insufficient",
+        "win_probability": 0.2439,
+        "breakeven_probability": 0.3006,
+        "fp_cost_inr_effective": 750.0,
+        "expected_fn_cost_inr": 425.64,
+        "expected_fp_cost_inr": 567.07,
+        "explanation": "Win probability 0.24 doesn't clear the break-even point (0.301) for this dispute's transaction amount. Weak/absent evidence: subscription_cancellation_confirmed."
       }
     },
     "razorpay_decline_resolution_path": "Non-fraud-reason dispute: per Razorpay's process, if not contested (or contested and lost), Razorpay auto-refunds the customer -- no manual merchant action required.",
-    "final_decision": "submit_with_caveat"
+    "final_decision": "flag_insufficient"
   },
   {
     "dispute_id": "DSP103880",
-    "timestamp": "2026-09-04T05:19:02.621614+00:00",
+    "timestamp": "2026-09-04T06:10:33.524520+00:00",
     "stages": {
       "ingestion": {
         "status": "ok"
@@ -80,15 +58,16 @@
         "missing_fields": []
       },
       "scoring": {
-        "win_probability": 0.0936
+        "win_probability": 0.121
       },
       "decision_gate": {
         "decision": "submit_with_caveat",
-        "win_probability": 0.0936,
+        "win_probability": 0.121,
         "breakeven_probability": 0.0927,
-        "expected_fn_cost_inr": 228.98,
-        "expected_fp_cost_inr": 226.6,
-        "explanation": "Win probability 0.09 clears the break-even point for this transaction amount, but none of the reason-specific evidence fields (duplicate_transaction_exists) are present or true -- the score is likely driven by other account/transaction signals. Flagged for human review before submission rather than auto-submitted."
+        "fp_cost_inr_effective": 250.0,
+        "expected_fn_cost_inr": 295.87,
+        "expected_fp_cost_inr": 219.76,
+        "explanation": "Win probability 0.12 clears the break-even point for this transaction amount, but none of the reason-specific evidence fields (duplicate_transaction_exists) are present or true -- the score is likely driven by other account/transaction signals. Flagged for human review before submission rather than auto-submitted."
       },
       "packet_drafting": {
         "dispute_id": "DSP103880",
@@ -119,7 +98,7 @@
   },
   {
     "dispute_id": "DSP100052",
-    "timestamp": "2026-09-04T05:19:02.631641+00:00",
+    "timestamp": "2026-09-04T06:10:33.539890+00:00",
     "stages": {
       "ingestion": {
         "status": "ok"
@@ -141,15 +120,16 @@
         "missing_fields": []
       },
       "scoring": {
-        "win_probability": 0.0936
+        "win_probability": 0.121
       },
       "decision_gate": {
         "decision": "flag_insufficient",
-        "win_probability": 0.0936,
+        "win_probability": 0.121,
         "breakeven_probability": 0.1869,
-        "expected_fn_cost_inr": 101.82,
-        "expected_fp_cost_inr": 226.6,
-        "explanation": "Win probability 0.09 doesn't clear the break-even point (0.187) for this dispute's transaction amount. Weak/absent evidence: refund_already_processed, refund_processed_before_dispute."
+        "fp_cost_inr_effective": 250.0,
+        "expected_fn_cost_inr": 131.57,
+        "expected_fp_cost_inr": 219.76,
+        "explanation": "Win probability 0.12 doesn't clear the break-even point (0.187) for this dispute's transaction amount. Weak/absent evidence: refund_already_processed, refund_processed_before_dispute."
       }
     },
     "razorpay_decline_resolution_path": "Non-fraud-reason dispute: per Razorpay's process, if not contested (or contested and lost), Razorpay auto-refunds the customer -- no manual merchant action required.",
@@ -157,7 +137,7 @@
   },
   {
     "dispute_id": "DSP102551",
-    "timestamp": "2026-09-04T05:19:02.642491+00:00",
+    "timestamp": "2026-09-04T06:10:33.553871+00:00",
     "stages": {
       "ingestion": {
         "status": "ok"
@@ -183,14 +163,15 @@
         "missing_fields": []
       },
       "scoring": {
-        "win_probability": 0.0936
+        "win_probability": 0.085
       },
       "decision_gate": {
         "decision": "submit_with_caveat",
-        "win_probability": 0.0936,
+        "win_probability": 0.085,
         "breakeven_probability": 0.0774,
-        "expected_fn_cost_inr": 278.83,
-        "expected_fp_cost_inr": 226.6,
+        "fp_cost_inr_effective": 250.0,
+        "expected_fn_cost_inr": 253.22,
+        "expected_fp_cost_inr": 228.74,
         "explanation": "Win probability 0.09 clears the break-even point for this transaction amount, but none of the reason-specific evidence fields (delivery_proof_available, tracking_number_valid, signature_confirmation, delivery_confirmed_before_dispute) are present or true -- the score is likely driven by other account/transaction signals. Flagged for human review before submission rather than auto-submitted."
       },
       "packet_drafting": {
@@ -227,7 +208,7 @@
   },
   {
     "dispute_id": "DSP102246",
-    "timestamp": "2026-09-04T05:19:02.654441+00:00",
+    "timestamp": "2026-09-04T06:10:33.566979+00:00",
     "stages": {
       "ingestion": {
         "status": "ok"
@@ -253,15 +234,16 @@
         "missing_fields": []
       },
       "scoring": {
-        "win_probability": 0.122
+        "win_probability": 0.128
       },
       "decision_gate": {
         "decision": "flag_insufficient",
-        "win_probability": 0.122,
+        "win_probability": 0.128,
         "breakeven_probability": 0.1817,
-        "expected_fn_cost_inr": 137.35,
-        "expected_fp_cost_inr": 219.51,
-        "explanation": "Win probability 0.12 doesn't clear the break-even point (0.182) for this dispute's transaction amount. Weak/absent evidence: tracking_number_valid, signature_confirmation."
+        "fp_cost_inr_effective": 250.0,
+        "expected_fn_cost_inr": 144.2,
+        "expected_fp_cost_inr": 217.99,
+        "explanation": "Win probability 0.13 doesn't clear the break-even point (0.182) for this dispute's transaction amount. Weak/absent evidence: tracking_number_valid, signature_confirmation."
       }
     },
     "razorpay_decline_resolution_path": "Non-fraud-reason dispute: per Razorpay's process, if not contested (or contested and lost), Razorpay auto-refunds the customer -- no manual merchant action required.",
@@ -269,7 +251,7 @@
   },
   {
     "dispute_id": "DSP-MALFORMED-001",
-    "timestamp": "2026-09-04T05:19:02.666777+00:00",
+    "timestamp": "2026-09-04T06:10:33.580768+00:00",
     "stages": {
       "ingestion": {
         "status": "ok"

@@ -1,7 +1,7 @@
 reason,n_positive,heuristic_recall,ml_recall
-credit_not_processed,49,0.714,0.551
-duplicate_charge,57,0.825,0.93
-fraud,85,0.776,0.635
+credit_not_processed,49,0.714,0.592
+duplicate_charge,57,0.825,0.912
+fraud,85,0.776,0.659
 item_not_received,97,0.443,0.66
-not_as_described,47,1.0,0.404
-subscription_cancelled,23,0.565,0.435
+not_as_described,47,1.0,0.34
+subscription_cancelled,23,0.565,0.478
