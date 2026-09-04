@@ -238,7 +238,7 @@ Net effect of the one adjustment that was justified:
 
 This supersedes Section 4.3's per-reason table and total cost figure going
 forward -- rerun `evaluate.py` to reproduce the "After" column;
-`results/day3/per_reason_metrics.csv` reflects the updated gate.
+`results/ml/per_reason_metrics.csv` reflects the updated gate.
 
 ### 4.5 ML vs. a simple heuristic (does the ML add anything?)
 

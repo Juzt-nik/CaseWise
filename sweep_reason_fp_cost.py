@@ -93,14 +93,26 @@ if __name__ == '__main__':
     print("Chosen: 3.0x -- solidly on the upward slope, well clear of the ~6x point where "
           "submissions on this reason code collapse to zero (see 8.0x row).")
 
-    print("\n=== not_as_described: NON-monotonic -- NOT adjusted, see reasoning below ===")
+    print("\n=== not_as_described: NON-monotonic across runs -- NOT adjusted, see reasoning below ===")
+    nad_rows = []
     for m in [1.0, 1.2, 1.5, 1.8, 2.0, 2.2]:
         df, cost = evaluate({'not_as_described': m})
         nad = df[df.reason == 'not_as_described'].iloc[0]
-        print(f"m={m:.1f} | nad P={nad.precision:.3f} R={nad.recall:.3f} F1={nad.f1:.3f} (n_positive={nad.n_positive})")
-    print("Precision moves 0.137 -> 0.120 -> 0.157 -> 0.096 as the multiplier rises -- it gets "
-          "WORSE before it gets slightly better, then collapses. With only 47 positive cases in "
-          "the held-out test set, any single multiplier here would be fit to noise in one split, "
-          "not a real signal -- left at 1.0x (unadjusted) pending either more data or a multi-seed "
-          "retrain check (same discipline as robustness_check.py already applies to the "
-          "SynthEdge-vs-SMOTE comparison).")
+        nad_rows.append((m, nad.precision, nad.recall, nad.f1, int(nad.n_positive)))
+        print(f"m={m:.1f} | nad P={nad.precision:.3f} R={nad.recall:.3f} F1={nad.f1:.3f} (n_positive={int(nad.n_positive)})")
+
+    precisions = [r[1] for r in nad_rows]
+    n_pos = nad_rows[0][4]
+    precision_path = " -> ".join(f"{p:.3f}" for p in precisions)
+    is_monotonic = all(precisions[i] <= precisions[i + 1] for i in range(len(precisions) - 1))
+    print(f"\nThis run's precision path as the multiplier rises: {precision_path}")
+    print(f"Monotonically increasing this run: {is_monotonic}.")
+    print(f"With only {n_pos} positive cases in the held-out test set, this path is known to be "
+          f"UNSTABLE across data draws -- rerun this script after regenerating disputes_10k.csv "
+          f"(CTGAN's documented non-determinism, see README Section 4) and compare against the run "
+          f"above: a genuinely different shape (not just different exact numbers) each time is the "
+          f"signal that no single multiplier here is trustworthy, only noise from a thin positive "
+          f"class -- left at 1.0x (unadjusted) pending either more data or a multi-seed retrain "
+          f"check (same discipline as robustness_check.py already applies to the SynthEdge-vs-SMOTE "
+          f"comparison). Do not hardcode this run's specific numbers into the README or the code "
+          f"comments in pipeline.py/evaluate.py -- they will not match the next data regeneration.")
