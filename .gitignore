@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Streamlit local config/secrets (relevant once a real LLM API key is wired in)
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# NOTE: model_artifacts/, results/, and disputes_10k.csv are intentionally
+# NOT ignored -- they're committed as evidence for the numbers in README.md,
+# not regenerated build output.
