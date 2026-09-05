@@ -17,10 +17,10 @@ probability than a low-value one.
 Concretely, at the system's `FP_COST_INR = 250` default:
 
 | Transaction amount | Win probability needed to submit |
-|---|---|
-| Rs.500 | 33.3% |
-| Rs.1,500 | 14.3% |
-| Rs.5,000 | 4.8% |
+| ------------------ | --------------------------------- |
+| Rs.500              | 33.3%                              |
+| Rs.1,500             | 14.3%                              |
+| Rs.5,000             | 4.8%                               |
 
 Two disputes with the **identical win probability of 15%** get opposite
 decisions purely because of transaction size: the Rs.1,500 dispute clears
@@ -47,7 +47,7 @@ exactly what a fairness-minded reviewer would want disclosed rather than
 discovered.
 
 This connects directly to a product-strategy question worth stating
-plainly (see `README.md` Section 7): the merchants with the least capacity
+plainly (see `README.md` Section 8): the merchants with the least capacity
 to fight chargebacks on their own are often smaller merchants, whose
 transactions skew toward the lower end of this table. A flat, global
 `FP_COST_INR` therefore gives the least benefit of the doubt to exactly the
