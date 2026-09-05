@@ -286,12 +286,6 @@ value-add, stated precisely rather than as a blanket "ML wins" claim.
 
 ## 5. Repo contents and how to run it
 
-No `requirements.txt` is committed yet -- install these directly:
-
-```
-pip install pandas numpy scikit-learn xgboost imbalanced-learn synthedge streamlit plotly
-```
-
 `synthedge` is a separate published package (PyPI: `pip install
 synthedge`, source: `github.com/Juzt-nik/SynthEdge`) built for this kind
 of imbalanced-tabular augmentation problem -- see Section 4.1 for why it
