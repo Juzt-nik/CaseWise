@@ -105,7 +105,7 @@ mapping, resolution-path note) -- all three are presentation-layer or
 hard-guard additions verified not to touch scoring or the economic
 decision.
 
-### 4.1 Augmentation comparison (Day 2)
+### 4.1 Augmentation comparison 
 
 Baseline vs. SMOTE vs. SynthEdge, same 6,400-row training split, same
 held-out 2,000-row test set:
@@ -153,7 +153,7 @@ confirms what resampling technique, if any, Razorpay uses in production;
 this comparison is against the reasonable default a reviewer would expect
 to see tried first, not against a specific competitor's real system.
 
-### 4.2 Probability calibration (Day 4/6)
+### 4.2 Probability calibration 
 
 The raw XGBoost model (trained with `scale_pos_weight` to handle class
 imbalance) produces probabilities that are **not usable as true
@@ -174,7 +174,7 @@ and clearly *better* once calibrated -- proof the fixed-threshold approach
 was silently compensating for bad calibration, not that calibration didn't
 matter.
 
-### 4.3 Evaluation with rupee-denominated cost (Day 3)
+### 4.3 Evaluation with rupee-denominated cost 
 
 On the held-out 2,000-dispute test set, at the chosen default
 `FP_COST_INR = 250` (see Section 6.1 for justification):
@@ -211,7 +211,7 @@ cost differs from Rs.250):
 | Rs.600 | 0.315 | 0.408 | 0.355 |
 | Rs.1000 | 0.384 | 0.291 | 0.331 |
 
-### 4.4 Reason-specific FP cost (Day 6.5 -- fixes the weakest reason codes)
+### 4.4 Reason-specific FP cost 
 
 Section 4.3's overall precision (0.239) hides that error concentrates in two
 reason codes: `not_as_described` (0.134) and `subscription_cancelled`
@@ -266,18 +266,18 @@ present, using the identical field set and cost function as the ML system
 | Method | Precision | Recall | F1 | Total cost |
 |---|---|---|---|---|
 | Heuristic (>=50% evidence) | 0.285 | **0.701** | **0.405** | Rs.405,216 |
-| ML (calibrated + economic gate) | 0.239 | 0.637 | 0.348 | **Rs.302,787** |
+| ML (calibrated + economic gate) | 0.247 | 0.620 | 0.354 | **Rs.296,569** |
 
 On raw classification metrics, the heuristic wins -- higher recall, higher
 F1, even perfect recall (1.000) on `not_as_described`, where the ML system
-only reaches 0.404. **The ML system's advantage is not accuracy -- it's
+only reaches 0.340. **The ML system's advantage is not accuracy -- it's
 where the mistakes land.** Checked directly against the missed-dispute
 values on the same test set:
 
 | | Missed disputes (n) | Average value of a miss |
 |---|---|---|
 | Heuristic | 107 | Rs.2,313 (== the dataset's overall average -- value-blind) |
-| ML system | 130 | Rs.933 (well below average -- deliberately concentrated on low-value disputes) |
+| ML system | 136 | Rs.938 (well below average -- deliberately concentrated on low-value disputes) |
 
 The heuristic misses transaction value at random. The ML system's
 amount-aware gate deliberately trades a few more total misses for making
@@ -403,6 +403,18 @@ between a more "agentic" system and one that can't drift outside its own
 defense-only claim, this project chose the latter. The integration point
 is left ready (above) for a future version where that tradeoff is
 revisited deliberately, not by default.
+
+### 6.6 Full setup instructions live in a separate file, not duplicated here
+
+Section 5 covers the file manifest and run order at the level needed to
+follow this README. Exact install commands, including one nuance not
+obvious from the run order alone -- the PyPI `synthedge` package doesn't
+yet have the CTGAN-determinism fix from Section 9 published to it, so
+fully reproducible runs need the patched fork
+(`pip install git+https://github.com/Juzt-nik/SynthEdge.git`) instead of
+plain `pip install synthedge` -- are kept in
+[`SETUP.md`](./SETUP.md) rather than duplicated here, so there is exactly
+one place that can go stale on a dependency change instead of two.
 
 ## 7. What does the Streamlit dashboard show?
 
@@ -676,6 +688,10 @@ degrading gracefully instead of taking the whole run down.
 Reproduce it directly: `python pipeline.py` runs `run_demo_batch()`,
 which always appends this malformed record to its five real samples and
 writes the full trail to `results/audit_trail/<timestamp>/audit_trail.json`.
+
+Full standalone writeup, including a second example of the same
+fail-closed pattern (the deadline guard from Section 6.4), in
+[`failure_case.md`](./failure_case.md).
 
 ## 11. Alignment with Razorpay's real Disputes API
 
