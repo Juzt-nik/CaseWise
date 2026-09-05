@@ -455,13 +455,20 @@ with tab_demo:
     # ---- run the real pipeline ----
     result = pipeline.process(dispute)
 
-    # ---- decision banner ----
+    # ---- decision banner (status display, not a button -- shows what the
+    # pipeline already decided; there's nothing to click here) ----
     decision = result['final_decision']
     color = DECISION_COLOR.get(decision, GRAY_BAR)
     label = DECISION_LABEL.get(decision, decision)
     st.markdown(
-        f"<div style='padding:16px;border-radius:12px;background:{color};color:white;"
-        f"font-size:22px;font-weight:700;'>{label}</div>",
+        f"<div style='padding:14px 18px;border-radius:10px;background:{CARD_BG};"
+        f"border:1px solid {CARD_BORDER};border-left:4px solid {color};'>"
+        f"<div style='color:{TEXT_MUTED};font-size:11px;text-transform:uppercase;"
+        f"letter-spacing:0.05em;font-weight:600;margin-bottom:4px;'>Pipeline decision</div>"
+        f"<div style='color:{TEXT_PRIMARY};font-size:19px;font-weight:700;'>"
+        f"<span style='display:inline-block;width:9px;height:9px;border-radius:50%;"
+        f"background:{color};margin-right:9px;'></span>{label}</div>"
+        f"</div>",
         unsafe_allow_html=True,
     )
     st.write("")
