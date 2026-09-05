@@ -12,7 +12,7 @@ comparison, not a strawman.
 import pandas as pd
 from sklearn.metrics import precision_recall_fscore_support
 
-from evaluate import rebuild_test_split, load_artifacts, economic_decision, FP_COST_INR
+from evaluate import rebuild_test_split, load_artifacts, economic_decision, effective_fp_cost_series, FP_COST_INR
 from pipeline import REASON_RELEVANT_FIELDS
 
 df_raw = pd.read_csv('disputes_10k.csv')
@@ -37,10 +37,18 @@ heuristic_pred = test_raw.apply(heuristic_decision_for_row, axis=1).values
 model, calibrator, feature_columns = load_artifacts()
 raw_proba = model.predict_proba(X_test[feature_columns])[:, 1]
 ml_win_prob = calibrator.predict(raw_proba)
-ml_pred = economic_decision(ml_win_prob, amount_test.values, FP_COST_INR)
+# Uses the SAME reason-specific FP cost as evaluate.py/pipeline.py's shipped
+# gate (Section 4.4) -- otherwise this comparison silently compares the
+# heuristic against a stale, pre-fix version of the ML gate.
+ml_fp_cost = effective_fp_cost_series(reason_test, FP_COST_INR)
+ml_pred = economic_decision(ml_win_prob, amount_test.values, ml_fp_cost)
 
 
 def cost_of(pred):
+    # Real dollar cost always uses the base FP_COST_INR, not the inflated
+    # decision-threshold value -- the multiplier is a threshold knob, not a
+    # claim that a false submission actually costs more in rupees (see
+    # evaluate.py's effective_fp_cost_series docstring).
     fp = ((pred == 1) & (y_test.values == 0)).sum() * FP_COST_INR
     fn = amount_test.values[(pred == 0) & (y_test.values == 1)].sum()
     return fp + fn, fp, fn
