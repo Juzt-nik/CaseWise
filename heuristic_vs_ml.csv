@@ -1,3 +1,0 @@
-method,precision,recall,f1,total_cost_inr
-heuristic (>=50% evidence),0.285,0.701,0.405,405216.19000000006
-ML (calibrated + gate),0.247,0.62,0.354,296569.32
