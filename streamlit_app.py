@@ -198,10 +198,8 @@ audit_entries, audit_path = load_latest_audit_trail()
 
 st.markdown(f"""
 <div class="hero">
-    <h1>CaseWise -- turn chargeback risk into measurable savings</h1>
-    <p>Razorpay AI Buildathon, Track 02: AI Risk Manager. Every number and chart
-    on this page is read live from this repo's own <code>results/</code> files --
-    rerun <code>evaluate.py</code>, <code>train_and_compare.py</code>, or
+    <h1>CaseWise - Turns chargeback risk into measurable savings</h1>
+    <p>Every number and chart on this page is read live from this repo's own <code>results/</code> files --rerun <code>evaluate.py</code>, <code>train_and_compare.py</code>, or
     <code>pipeline.py</code> and this page reflects the new run, not a fixed demo.</p>
 </div>
 """, unsafe_allow_html=True)
