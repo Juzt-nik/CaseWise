@@ -418,33 +418,50 @@ with tab_demo:
         st.sidebar.write(f"Actually won: **{bool(dispute.get('won'))}**")
 
     else:
+        # reason_code stays OUTSIDE the form -- the evidence checkboxes below
+        # depend on it, and a form's contents don't update live until
+        # submitted, so this needs to react immediately on its own.
         reason_code = st.sidebar.selectbox("Reason code", sorted(KNOWN_REASON_CODES))
-        amount = st.sidebar.slider("Transaction amount (INR)", 100, 20000, 1500, step=100)
-        dispute = {
-            'dispute_id': 'DSP-CUSTOM-001',
-            'transaction_id': 'TXN-CUSTOM-001',
-            'dispute_reason_code': reason_code,
-            'transaction_amount_inr': amount,
-            'merchant_category': 'retail',
-            'days_since_transaction': 30,
-            'customer_account_age_days': 365,
-            'previous_dispute_count': 0,
-            'customer_communication_count': 1,
-            'customer_communication_sentiment': 0.0,
-            'evidence_completeness_score': 0.5,
-        }
-        st.sidebar.caption("Reason-relevant evidence:")
-        for field in REASON_RELEVANT_FIELDS.get(reason_code, []):
-            dispute[field] = int(st.sidebar.checkbox(field.replace('_', ' '), value=False))
 
-        st.sidebar.divider()
-        days_left = st.sidebar.slider(
-            "Days until response deadline (respond_by)", -5, 30, 10,
-            help="Negative = deadline already passed. Matches Razorpay's real API field name.",
-        )
-        dispute['respond_by'] = (datetime.now(timezone.utc) + timedelta(days=days_left)).timestamp()
-        if days_left < 0:
-            st.sidebar.warning(f"Deadline passed {abs(days_left)} day(s) ago -- gate will be skipped entirely.")
+        with st.sidebar.form("custom_dispute_form"):
+            amount = st.slider("Transaction amount (INR)", 100, 20000, 1500, step=100)
+            st.caption("Reason-relevant evidence:")
+            evidence_values = {
+                field: st.checkbox(field.replace('_', ' '), value=False)
+                for field in REASON_RELEVANT_FIELDS.get(reason_code, [])
+            }
+            st.divider()
+            days_left = st.slider(
+                "Days until response deadline (respond_by)", -5, 30, 10,
+                help="Negative = deadline already passed. Matches Razorpay's real API field name.",
+            )
+            run_clicked = st.form_submit_button("Run this dispute", use_container_width=True)
+
+        # Only (re)build the dispute the pipeline actually sees when the
+        # button is clicked -- or on first load of this mode, so the page
+        # isn't empty before anyone has pressed anything.
+        if run_clicked or 'custom_dispute' not in st.session_state:
+            dispute = {
+                'dispute_id': 'DSP-CUSTOM-001',
+                'transaction_id': 'TXN-CUSTOM-001',
+                'dispute_reason_code': reason_code,
+                'transaction_amount_inr': amount,
+                'merchant_category': 'retail',
+                'days_since_transaction': 30,
+                'customer_account_age_days': 365,
+                'previous_dispute_count': 0,
+                'customer_communication_count': 1,
+                'customer_communication_sentiment': 0.0,
+                'evidence_completeness_score': 0.5,
+            }
+            for field, checked in evidence_values.items():
+                dispute[field] = int(checked)
+            dispute['respond_by'] = (datetime.now(timezone.utc) + timedelta(days=days_left)).timestamp()
+            st.session_state['custom_dispute'] = dispute
+            if days_left < 0:
+                st.sidebar.warning(f"Deadline passed {abs(days_left)} day(s) ago -- gate will be skipped entirely.")
+
+        dispute = st.session_state['custom_dispute']
 
     st.sidebar.divider()
     if st.sidebar.button("Run a deliberately malformed dispute instead"):
@@ -454,6 +471,19 @@ with tab_demo:
 
     # ---- run the real pipeline ----
     result = pipeline.process(dispute)
+
+    # ---- dispute context strip -- the amount specifically was only ever
+    # visible buried in the sidebar dropdown label; restating it here keeps
+    # it in view next to the decision it actually drives.
+    st.markdown(
+        f"<div style='color:{TEXT_MUTED};font-size:13px;margin-bottom:8px;'>"
+        f"<strong style='color:{TEXT_PRIMARY};'>{dispute.get('dispute_id', '-')}</strong>"
+        f"&nbsp;&middot;&nbsp;{dispute.get('dispute_reason_code', '-')}"
+        f"&nbsp;&middot;&nbsp;Transaction amount: "
+        f"<strong style='color:{TEXT_PRIMARY};'>Rs.{dispute.get('transaction_amount_inr', 0):,.0f}</strong>"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
 
     # ---- decision banner (status display, not a button -- shows what the
     # pipeline already decided; there's nothing to click here) ----
