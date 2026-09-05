@@ -1,9 +1,27 @@
 # CaseWise
 
-**Chargeback Evidence Responder + Win-Probability Gate**
+**AI for Chargeback Evidence Responder + Win-Probability Gate**
 
-An agent that decides, per dispute, whether fighting a chargeback is worth
+An agent that decides upon per dispute that whether fighting a chargeback is worth
 more than it costs and drafts the evidence response around it.
+
+## Contents
+
+1. [What it does](#1-what-it-does)
+2. [Architecture](#2-architecture)
+3. [Dataset](#3-dataset)
+4. [Results](#4-results)
+5. [Repo contents and how to run it](#5-repo-contents-and-how-to-run-it)
+6. [Honest design decisions](#6-honest-design-decisions)
+7. [What does the Streamlit dashboard show?](#7-what-does-the-streamlit-dashboard-show)
+8. [Product strategy: who this actually helps most](#8-product-strategy-who-this-actually-helps-most)
+9. [Known bugs found and fixed during the build](#9-known-bugs-found-and-fixed-during-the-build)
+10. [Documented failure case](#10-documented-failure-case)
+11. [Alignment with Razorpay's real Disputes API](#11-alignment-with-razorpays-real-disputes-api)
+12. [How it maps to Razorpay's work](#12-how-it-maps-to-razorpays-work)
+13. [Limitations and future work](#13-limitations-and-future-work)
+14. [What makes it unique and standout](#14-what-makes-it-unique-and-standout)
+15. [References -- what was used, and for what](#15-references----what-was-used-and-for-what)
 
 ---
 
