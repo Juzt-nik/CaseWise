@@ -330,8 +330,10 @@ high-value dispute clears the gate at a much lower win probability than a
 low-value one (Rs.500 needs 33.3% win probability to submit; Rs.5,000
 needs only 4.8%). This is the correct behavior for minimizing total cost,
 and it is also a real distributive trade-off -- smaller transactions get
-less benefit of the doubt at equal evidence quality (the numbers above
-are the full detail; nothing is held back in a separate file). See
+less benefit of the doubt at equal evidence quality. Full standalone
+treatment, including the interaction with the deadline guard and an
+explicit "what we are not claiming" section, in
+[`cost_asymmetry_disclosure.md`](./cost_asymmetry_disclosure.md). See
 Section 8 for why this specifically matters for who CaseWise helps most.
 
 A full worked example of this formula, using an actual dispute from the
@@ -605,6 +607,16 @@ model:
   two different values for "ML precision" on the same screen. Caught by
   checking the two output files against each other before deploying the
   dashboard, not after a judge noticed.
+- **A README pointer to a file that didn't exist.** An earlier version of
+  Section 6.2 pointed to `cost_asymmetry_disclosure.md` for "full detail"
+  before that file had actually been written -- a broken link, caught and
+  removed rather than left for a judge to click and find nothing. That
+  file now exists for real
+  ([`cost_asymmetry_disclosure.md`](./cost_asymmetry_disclosure.md)), with
+  a fuller treatment than Section 6.2's condensed version -- including the
+  interaction with the deadline guard and an explicit "what we are not
+  claiming" section -- so the link has been restored now that it actually
+  resolves to something.
 
 ## 10. Documented failure case
 
