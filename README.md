@@ -1,12 +1,9 @@
 # CaseWise
 
 **Chargeback Evidence Responder + Win-Probability Gate**
-Razorpay AI Buildathon 2026 -- Track 02: AI Risk Manager
 
 An agent that decides, per dispute, whether fighting a chargeback is worth
-more than it costs -- and drafts the evidence response if so. Built around
-the track's stated bar: *"honest metrics including false-positive cost;
-strictly defense-only, anything offense-capable is disqualified."*
+more than it costs and drafts the evidence response around it.
 
 ---
 
@@ -37,43 +34,35 @@ toward a human, not toward automation.
 
 ## 2. Architecture
 
-```
-Dispute record (dispute_reason_code, transaction_amount_inr, respond_by?)
-     |
-     v
-[0] Deadline guard ---> respond_by passed? --> MISSED_DEADLINE (hard stop)
-     |
-     v
-[1] Ingest -----------> required fields present?
-     |
-     v
-[2] Reason validation -> known reason code, or -> MANUAL_REVIEW
-     |
-     v
-[3] Evidence retrieval -> project only reason-relevant fields
-     |
-     v
-[4] Win-probability scoring -> XGBoost (SynthEdge-augmented)
-     |                          -> isotonic-calibrated
-     v
-[5] Decision gate -> win_prob vs FP_COST/(FP_COST+amount)
-     |         \\
-     v          v
-  SUBMIT    FLAG_INSUFFICIENT
-     |
-     v
-[6] Packet drafting -> template narrative -> grounding check
-     |                 -> mapped to Razorpay's real evidence schema
-     v          \\
-  SUBMIT      FLAG_UNGROUNDED_NARRATIVE (routed to human review)
-     |
-     v
-Audit trail (every stage, every dispute, every number)
+```mermaid
+flowchart TD
+    A[Dispute record] --> B{Deadline guard<br/>respond_by passed?}
+    B -->|Yes| Z1[MISSED_DEADLINE]
+    B -->|No| C{Ingestion<br/>required fields present?}
+    C -->|Missing| Z2[Stopped -- routed to error]
+    C -->|OK| D{Reason validation<br/>known reason code?}
+    D -->|Unknown| Z3[MANUAL_REVIEW]
+    D -->|Known| E[Evidence retrieval<br/>project reason-relevant fields only]
+    E --> F[Win-probability scoring<br/>XGBoost, SynthEdge-augmented,<br/>isotonic-calibrated]
+    F --> G{Decision gate<br/>win_prob x amount vs<br/>1-win_prob x FP_cost}
+    G -->|Below breakeven| Z4[FLAG_INSUFFICIENT]
+    G -->|Clears, but evidence<br/>field itself absent| Z6[SUBMIT_WITH_CAVEAT]
+    G -->|Clears gate| H[Packet drafting<br/>template narrative, no LLM]
+    H --> I{Grounding check<br/>numbers trace to evidence?}
+    I -->|Fails| Z5[FLAG_UNGROUNDED_NARRATIVE<br/>-> human review]
+    I -->|Passes| J[SUBMIT<br/>mapped to Razorpay evidence schema]
+    Z1 --> K[(Audit trail<br/>every stage, every number)]
+    Z2 --> K
+    Z3 --> K
+    Z4 --> K
+    Z5 --> K
+    Z6 --> K
+    J --> K
 ```
 
 Six possible outcomes per dispute: `submit`, `submit_with_caveat` (score
 clears the gate but the reason-specific evidence itself is absent --
-caught deliberately, see Section 5), `flag_ungrounded_narrative`,
+caught deliberately, see Section 6.4), `flag_ungrounded_narrative`,
 `flag_insufficient`, `manual_review`, `missed_deadline`.
 
 ## 3. Dataset
@@ -89,14 +78,14 @@ disclosed as a deliberate, stated design choice, not a hidden gap.
 ## 4. Results
 
 All numbers below are from `model_artifacts/training_meta.json` and
-`results/ml/`. Re-running these
-scripts may shift figures slightly (SynthEdge's CTGAN step has a known,
-partially-mitigated non-determinism -- see Section 6); treat these as the
-result of one specific, reproducible run, not guaranteed-exact constants.
-None of Sections 4's numbers are affected by the Section 5.4 additions
-below (deadline guard, evidence-schema mapping, resolution-path note) --
-all three are presentation-layer or hard-guard additions verified not to
-touch scoring or the economic decision.
+`results/ml/`. Re-running these scripts may shift figures slightly
+(SynthEdge's CTGAN step has a known, partially-mitigated non-determinism
+-- see Section 9); treat these as the result of one specific, reproducible
+run, not guaranteed-exact constants. None of this section's numbers are
+affected by Section 6.4's additions (deadline guard, evidence-schema
+mapping, resolution-path note) -- all three are presentation-layer or
+hard-guard additions verified not to touch scoring or the economic
+decision.
 
 ### 4.1 Augmentation comparison (Day 2)
 
@@ -139,6 +128,13 @@ smaller claim than "SynthEdge improves recall where it's hardest," but
 it's the one that actually survives a multi-seed check rather than one
 that might not survive a judge running their own.
 
+SMOTE is used here as the standard, widely-taught default for imbalanced
+fraud/classification problems in general (see Section 15's references) --
+not because Razorpay is known to use it internally. No public source
+confirms what resampling technique, if any, Razorpay uses in production;
+this comparison is against the reasonable default a reviewer would expect
+to see tried first, not against a specific competitor's real system.
+
 ### 4.2 Probability calibration (Day 4/6)
 
 The raw XGBoost model (trained with `scale_pos_weight` to handle class
@@ -163,7 +159,7 @@ matter.
 ### 4.3 Evaluation with rupee-denominated cost (Day 3)
 
 On the held-out 2,000-dispute test set, at the chosen default
-`FP_COST_INR = 250` (see Section 5.1 for justification):
+`FP_COST_INR = 250` (see Section 6.1 for justification):
 
 | Policy | Total cost |
 |---|---|
@@ -232,8 +228,7 @@ model). The two reason codes behave completely differently:
 Net effect of the one adjustment that was justified (run `evaluate.py` for
 this session's exact figures -- treat the direction and rough magnitude
 below as the finding, not the specific decimals, since `disputes_10k.csv`
-is regenerated with CTGAN, which has documented non-determinism, Section
-6):
+is regenerated with CTGAN, which has documented non-determinism, Section 9):
 
 | Metric | Before | After |
 | --- | --- | --- |
@@ -271,9 +266,54 @@ amount-aware gate deliberately trades a few more total misses for making
 sure the misses that do happen are the cheap ones. That's the actual
 value-add, stated precisely rather than as a blanket "ML wins" claim.
 
-## 5. Honest design decisions
+## 5. Repo contents and how to run it
 
-### 5.1 FP-cost assumption (Rs.250)
+No `requirements.txt` is committed yet -- install these directly:
+
+```
+pip install pandas numpy scikit-learn xgboost imbalanced-learn synthedge streamlit plotly
+```
+
+`synthedge` is a separate published package (PyPI: `pip install
+synthedge`, source: `github.com/Juzt-nik/SynthEdge`) built for this kind
+of imbalanced-tabular augmentation problem -- see Section 4.1 for why it
+was chosen over SMOTE.
+
+**File manifest:**
+
+| File | Role |
+|---|---|
+| `generate_disputes.py` | Builds the synthetic dataset (`disputes_10k.csv`), Section 3 |
+| `train_model.py` | Trains the XGBoost win-probability model + isotonic calibrator, saves `model_artifacts/` |
+| `train_and_compare.py` | Baseline vs. SMOTE vs. SynthEdge comparison, Section 4.1 |
+| `robustness_check.py` | Reruns the Section 4.1 comparison across 5 seeds, `results/robustness_check.csv` |
+| `evaluate.py` | Calibration check, rupee-cost evaluation, per-reason metrics, FP-cost sensitivity -- Sections 4.2-4.4 |
+| `sweep_reason_fp_cost.py` | Sweeps the per-reason FP-cost multiplier and justifies Section 4.4's fix; run this directly to see this session's own numbers rather than trusting any figure quoted in this README |
+| `heuristic_baseline.py` | The `>=50%` evidence heuristic used as a comparison point, Section 4.5 |
+| `grounding_check.py` | Verifies a drafted narrative's numbers trace back to real retrieved evidence, Section 6.5 |
+| `pipeline.py` | The actual end-to-end system: deadline guard, reason validation, evidence retrieval, scoring, decision gate, packet drafting, audit trail. `run_demo_batch()` is the entry point (Section 10). |
+| `streamlit_app.py` | Interactive dashboard -- Overview + Live decision demo, Section 7 |
+| `disputes_10k.csv` | The generated dataset itself (10,000 rows, seed 42) |
+| `model_artifacts/` | Saved model, calibrator, feature list, training metadata |
+| `results/ml/` | Evaluation outputs -- per-reason metrics, FP-cost sensitivity, augmentation comparison, heuristic-vs-ML comparison |
+| `results/audit_trail/` | Timestamped audit trails from `pipeline.py` runs |
+| `results/robustness_check.csv` | Multi-seed results backing Section 4.1's robustness claim |
+
+**Run order** (each step reads the previous step's output):
+
+1. `python generate_disputes.py --n 10000 --seed 42 --out disputes_10k.csv`
+2. `python train_model.py`
+3. `python train_and_compare.py` (optional -- Section 4.1's comparison)
+4. `python robustness_check.py` (optional -- multi-seed check backing 4.1)
+5. `python evaluate.py` -- produces the numbers in Sections 4.2-4.4
+6. `python sweep_reason_fp_cost.py` (optional -- justifies the Section 4.4 multiplier)
+7. `python heuristic_baseline.py` (optional -- Section 4.5's comparison)
+8. `python pipeline.py` -- runs the actual system end-to-end, produces Section 10's failure case
+9. Interactive demo: `streamlit run streamlit_app.py`
+
+## 6. Honest design decisions
+
+### 6.1 FP-cost assumption (Rs.250)
 
 Industry estimates put full manual chargeback response at 2-5 hours of
 analyst time. This system automates evidence retrieval and packet
@@ -283,7 +323,7 @@ roughly Rs.100-300. Rs.250 is the chosen default, not an unexamined
 placeholder; Section 4.3's sensitivity table shows exactly how the
 system's behavior changes if the real number differs.
 
-### 5.2 The gate favors high-value disputes
+### 6.2 The gate favors high-value disputes
 
 Because `breakeven_probability = FP_COST / (FP_COST + amount)`, a
 high-value dispute clears the gate at a much lower win probability than a
@@ -292,22 +332,25 @@ needs only 4.8%). This is the correct behavior for minimizing total cost,
 and it is also a real distributive trade-off -- smaller transactions get
 less benefit of the doubt at equal evidence quality (the numbers above
 are the full detail; nothing is held back in a separate file). See
-Section 7 for why this specifically matters for who CaseWise helps most.
+Section 8 for why this specifically matters for who CaseWise helps most.
 
-### 5.3 Evidence "retrieval" is a projection, not a real lookup system
+A full worked example of this formula, using an actual dispute from the
+Live decision demo, is in Section 7.1.
+
+### 6.3 Evidence "retrieval" is a projection, not a real lookup system
 
 In this demo, evidence fields already sit on the same dispute row; the
 retrieval stage selects only the reason-relevant subset. A production
 system would replace this with a real merchant-record query -- the
 decision logic downstream is unaffected either way.
 
-### 5.4 Deadline handling is a hard guard, not a soft cost factor
+### 6.4 Deadline handling is a hard guard, not a soft cost factor
 
 `check_deadline()` treats an elapsed response deadline (`respond_by`,
 matching Razorpay's real API field name -- a Unix timestamp) as an
 immediate stop, not a continuous urgency weight folded into the cost
 function. Deliberately: adding a second, invented weighting constant
-would just recreate the exact FP-cost-arbitrariness problem Section 5.1
+would just recreate the exact FP-cost-arbitrariness problem Section 6.1
 already had to solve carefully. A deadline either has passed or hasn't.
 This field is optional and unused anywhere in `disputes_10k.csv`, so
 every number in Section 4 is provably unaffected by this guard's
@@ -315,7 +358,7 @@ existence -- verified by rerunning the full pipeline against all
 generated results and confirming byte-identical decisions before and
 after adding it.
 
-### 5.5 No live LLM call yet -- deliberate, not just unfinished
+### 6.5 No live LLM call yet -- deliberate, not just unfinished
 
 The evidence-packet narrative is a deterministic template, not a model
 call, so the pipeline runs without an API key. The integration point and
@@ -341,40 +384,159 @@ defense-only claim, this project chose the latter. The integration point
 is left ready (above) for a future version where that tradeoff is
 revisited deliberately, not by default.
 
-## 6. Alignment with Razorpay's real Disputes API
+## 7. What does the Streamlit dashboard show?
 
-Three integration points below are grounded directly in Razorpay's public
-API documentation, not assumptions -- built specifically so the project
-reads as a plausible v0 of a real internal tool, not a standalone exercise.
+`streamlit_app.py` has two tabs. Every number in both renders live from
+this repo's own `pipeline.py`/`results/` files at runtime -- nothing on
+either tab is a hardcoded mock.
 
-**Deadline-awareness (Section 5.4).** Razorpay's real dispute object
-exposes a `respond_by` timestamp, and the API rejects contest actions
-after it elapses. CaseWise's guard uses the identical field name and the
-identical hard-stop behavior.
+### 7.1 Live decision demo -- worked example
 
-**Evidence schema mapping.** Razorpay's real Contest API expects typed
-evidence fields. A drafted packet's evidence is mapped onto them directly:
+Pick any dispute and watch it move through every stage in Section 2's
+diagram in real time. Worked example, dispute `DSP109953`
+(`item_not_received`, Rs.2,699):
 
-| CaseWise field | Real Razorpay evidence field |
-|---|---|
-| `delivery_proof_available`, `tracking_number_valid`, `signature_confirmation` | `shipping_proof` |
-| `refund_already_processed`, `refund_processed_before_dispute` | `refund_confirmation` |
-| `customer_communication_count`, `customer_communication_sentiment` | `customer_communication` |
-| `refund_policy_disclosed_at_purchase` | `refund_cancellation_policy` |
-| `subscription_cancellation_confirmed` | `cancellation_proof` |
-| `duplicate_transaction_exists` | `billing_proof` (interpreted) |
-| `product_photos_available` | `proof_of_service` (interpreted) |
-| `avs_match`, `cvv_match`, `ip_device_match` | `access_activity_log` (interpreted) |
-| the drafted narrative | `explanation_letter`, truncated to Razorpay's real 1000-character limit |
+**Evidence retrieval.** Only four fields are pulled -- `delivery_proof_available`,
+`tracking_number_valid`, `signature_confirmation`, `delivery_confirmed_before_dispute`
+-- because those are the only fields relevant to `item_not_received`
+(Section 6.3). Everything else on the dispute record (account age, prior
+dispute count, communication sentiment) exists but is deliberately not
+shown here, since it's irrelevant to this reason type. Of the four, only
+`signature_confirmation` is true.
 
-**Downstream resolution path.** Per Razorpay's process, a fraud-reason
-dispute that isn't successfully contested requires the *merchant* to
-refund manually; every other reason code is auto-refunded by Razorpay.
-`get_decline_resolution_path()` surfaces which applies, so a decision to
-flag a dispute as insufficient comes with the correct downstream
-implication attached, not a one-size-fits-all assumption.
+**The break-even formula, worked out in full.** The transaction amount
+(Rs.2,699) is not calculated -- it's a given fact of the dispute. What
+*is* calculated from it is the break-even probability on the gauge chart:
 
-## 7. Product strategy: who this actually helps most
+```
+breakeven_probability = FP_COST / (FP_COST + amount)
+                       = 250 / (250 + 2699)
+                       = 250 / 2949
+                       ~= 0.0848  (8.48%)
+```
+
+`250` is the assumed cost of a wasted submission (Section 6.1). Because
+Rs.2,699 is a decent-sized transaction, the bar to clear is low -- only
+8.48% win probability is needed. This is the identical mechanism that
+demands 33.3% for a Rs.500 dispute and only 4.8% for a Rs.5,000 one
+(Section 6.2) -- bigger disputes get more benefit of the doubt because
+missing them costs more.
+
+**Win probability** (31.9% for this dispute) comes from a completely
+separate source: the trained XGBoost model, scoring the full ~20-field
+record (not just the four evidence fields shown), then corrected through
+isotonic calibration (Section 4.2). 31.9% comfortably clears the 8.48%
+bar, which is why the banner reads SUBMIT.
+
+**The two rupee numbers actually driving the decision** (computed
+underneath the gauge, not shown directly on it):
+
+```
+expected cost of flagging (a possible missed win) = win_prob x amount
+                                                    = 0.319 x 2699
+                                                   ~= Rs.862
+
+expected cost of submitting (if it turns out to lose) = (1 - win_prob) x FP_cost
+                                                        = 0.681 x 250
+                                                       ~= Rs.170
+```
+
+Rs.862 > Rs.170, so submitting is the better bet in expectation -- this
+comparison *is* the decision; the break-even percentage is the same math
+expressed as a probability instead of two rupee figures.
+
+**Honest footnote on this specific example:** the dataset records this
+dispute as actually lost (`won: False`). That is not a bug. The system
+correctly judged this a good bet in expectation (31.9% chance, decent
+payoff, cheap to try) -- this particular roll simply came up unlucky. No
+system can be right on every individual dispute; what's being optimized
+is total cost across many disputes, not any single outcome (this is the
+same logic backing Section 4.3's rupee-cost framing).
+
+### 7.2 Pipeline stage walkthrough -- second worked example
+
+Dispute `DSP104962` (`item_not_received`, Rs.1,454), stage by stage:
+
+1. **Ingestion** -- checks only that `dispute_id`, `dispute_reason_code`,
+   and `transaction_amount_inr` are present. Pure validation, nothing
+   computed.
+2. **Reason validation** -- `item_not_received` checked against the six
+   known codes (Section 1); marked valid. This is the stage that would
+   catch an unrecognized code and route it to manual review (Section 10)
+   instead of scoring it against a category the model never saw in
+   training.
+3. **Evidence retrieval** -- a projection (Section 6.3), not a database
+   lookup: only `delivery_proof_available` (1), `tracking_number_valid`
+   (1), `signature_confirmation` (0), `delivery_confirmed_before_dispute`
+   (0) are pulled, because those are the only fields relevant to this
+   reason code.
+4. **Win probability vs. break-even** -- two numbers from two different
+   sources on one gauge: 44.4% (the XGBoost model's calibrated estimate,
+   using the full record) against 14.7% (pure arithmetic: `250 / (250 +
+   1454)`). The orange bar clearing the green line *is* the decision,
+   visually.
+5. **Decision gate** -- the identical comparison restated in rupees:
+   expected cost of flagging ~= `0.444 x 1454` ~= Rs.646 against expected
+   cost of submitting ~= `0.556 x 250` ~= Rs.139. Rs.646 > Rs.139, so
+   submit. Mathematically identical to "44.4% > 14.7%," just expressed in
+   money for a rupee-minded reader.
+6. **Drafted evidence packet** -- generated only because the dispute
+   cleared the gate. The narrative states only the two evidence fields
+   that are actually `1` (`delivery_proof_available`,
+   `tracking_number_valid`); the two `0` fields are correctly omitted,
+   never fabricated in.
+7. **Grounding check** -- an independent second pass that reads the
+   drafted narrative back and checks every number mentioned in it against
+   the real evidence dict (Section 6.5). Passes here because the
+   narrative only ever states values genuinely present in evidence.
+8. **Mapped to Razorpay's real Contest API fields** -- `shipping_proof`,
+   sourced from `delivery_proof_available` and `tracking_number_valid`.
+   Not an invented internal category -- the literal field name Razorpay's
+   real dispute-contest API expects (Section 11).
+9. **"If not won" note** -- tells you the downstream implication if this
+   dispute doesn't actually win, based on reason code alone: for a
+   non-fraud reason like this one, Razorpay auto-refunds the customer,
+   no manual merchant action needed (Section 11's resolution-path
+   mapping).
+10. **Full audit trail** -- the complete raw JSON record of every stage
+    above, in one object. This is what you'd hand a judge or a real
+    auditor who wants to verify nothing above was summarized generously.
+
+### 7.3 Overview tab
+
+A live-rendered results dashboard, distinct from the single-dispute demo
+above -- pulled fresh from `results/` files rather than one dispute trace.
+
+**Four stat cards.** Gate savings vs. naive policy (Section 4.3's
+Rs.107,713 figure, re-rendered live so it reflects whatever the most
+recent `evaluate.py` run produced); overall precision, flagged against the
+heuristic comparison (Section 4.5); overall recall with F1; held-out
+disputes evaluated (2,000, with 358 actually won -- this one is fixed by
+the data split, so it never drifts between reruns the way the
+model-dependent numbers can).
+
+**FP-cost sensitivity chart** -- a live-rendered version of Section 4.3's
+sensitivity table: as assumed FP cost rises from Rs.100 to Rs.1,000,
+precision climbs while F1 stays roughly flat. The dashed line marks the
+chosen Rs.250 default.
+
+**Precision & recall by reason code** -- the Section 4.3/4.4 per-reason
+breakdown, showing `not_as_described` and `subscription_cancelled` as the
+two weakest codes, and noting the 3x FP-cost multiplier applied to the
+latter (Section 4.4).
+
+**SynthEdge vs. SMOTE vs. baseline** -- Section 4.1's finding, rendered
+live, with the caption pointing to a robustness expander for the 5-seed
+version -- so the honest, narrower claim (SynthEdge preserves baseline
+recall; SMOTE destroys it) is what actually ships on the dashboard, not
+an overstated headline.
+
+**ML gate vs. heuristic** -- Section 4.5's same-field-set comparison as
+grouped bars. The heuristic wins these three bars; the gate wins on total
+cost (the stat card at the top). That tension is the actual finding, not
+a contradiction to paper over -- see Section 14.
+
+## 8. Product strategy: who this actually helps most
 
 Large merchants typically already have dispute-management teams and
 tooling. The segment with the least capacity to fight chargebacks at all
@@ -383,7 +545,7 @@ dispute. That's arguably where this system creates the most real value --
 not optimizing an existing process, but extending a capability a segment
 currently doesn't have.
 
-This is in tension with Section 5.2: a flat, global `FP_COST_INR`
+This is in tension with Section 6.2: a flat, global `FP_COST_INR`
 systematically gives smaller transactions -- which skew toward smaller
 merchants -- less benefit of the doubt. The honest resolution, not yet
 built: a merchant-relative FP-cost assumption (scaled to that merchant's
@@ -395,7 +557,7 @@ honest this close to submission. Named here as the explicit next
 iteration rather than silently built into a second, unreconciled set of
 results.
 
-## 8. Known bugs found and fixed during the build
+## 9. Known bugs found and fixed during the build
 
 Not polish -- direct evidence of testing our own tooling, not just the
 model:
@@ -429,8 +591,22 @@ model:
   false for a dispute stopped by the new deadline guard, which would have
   displayed a misleading "UNRECOGNIZED" label for a dispute whose reason
   code was never even checked. Fixed and verified before it shipped.
+- **A stale, hardcoded example baked into a comment.** An earlier version
+  of `sweep_reason_fp_cost.py`'s explanation for `not_as_described` quoted
+  one specific run's exact numbers as if they were a fixed pattern. A
+  fresh data regeneration produced a genuinely different shape, silently
+  making the comment wrong. Fixed by having the script compute and print
+  its own run's actual values live, rather than asserting a frozen
+  example anywhere in code or in this README (Section 4.4).
+- **Two comparison panels disagreeing on the same number.** After the
+  Section 4.4 fix shipped in `evaluate.py`, `heuristic_baseline.py` was
+  left calling the old flat-cost decision rule -- so the Overview
+  dashboard's KPI card and its heuristic-comparison chart would have shown
+  two different values for "ML precision" on the same screen. Caught by
+  checking the two output files against each other before deploying the
+  dashboard, not after a judge noticed.
 
-## 9. Documented failure case
+## 10. Documented failure case
 
 `pipeline.py`'s `run_demo_batch()` deliberately injects one malformed
 record alongside five real sampled disputes: a copy of a real dispute
@@ -471,52 +647,101 @@ Reproduce it directly: `python pipeline.py` runs `run_demo_batch()`,
 which always appends this malformed record to its five real samples and
 writes the full trail to `results/audit_trail/<timestamp>/audit_trail.json`.
 
-## 10. Repo contents and how to run it
+## 11. Alignment with Razorpay's real Disputes API
 
-No `requirements.txt` is committed yet -- install these directly:
+Four integration points below are grounded directly in Razorpay's public
+API documentation, not assumptions -- built specifically so the project
+reads as a plausible v0 of a real internal tool, not a standalone
+exercise. Every claim in this section is independently verified against
+a specific, cited page in Section 15.
 
-```
-pip install pandas numpy scikit-learn xgboost imbalanced-learn synthedge streamlit
-```
+**Deadline-awareness (Section 6.4).** Razorpay's real dispute object
+exposes a `respond_by` timestamp, and the Contest API rejects contest
+actions after it elapses with an explicit "deadline to respond has
+elapsed" error. CaseWise's guard uses the identical field name and the
+identical hard-stop behavior.
 
-`synthedge` is a separate published package (PyPI: `pip install
-synthedge`, source: `github.com/Juzt-nik/SynthEdge`) built for this kind
-of imbalanced-tabular augmentation problem -- see Section 4.1 for why it
-was chosen over SMOTE.
+**Evidence schema mapping.** Razorpay's real Contest API expects typed
+evidence fields. A drafted packet's evidence is mapped onto them directly:
 
-**File manifest:**
-
-| File | Role |
+| CaseWise field | Real Razorpay evidence field |
 |---|---|
-| `generate_disputes.py` | Builds the synthetic dataset (`disputes_10k.csv`), Section 3 |
-| `train_model.py` | Trains the XGBoost win-probability model + isotonic calibrator, saves `model_artifacts/` |
-| `train_and_compare.py` | Baseline vs. SMOTE vs. SynthEdge comparison, Section 4.1 |
-| `robustness_check.py` | Reruns the Section 4.1 comparison across 5 seeds, `results/robustness_check.csv` |
-| `evaluate.py` | Calibration check, rupee-cost evaluation, per-reason metrics, FP-cost sensitivity -- Sections 4.2-4.4 |
-| `sweep_reason_fp_cost.py` | Sweeps the per-reason FP-cost multiplier and justifies Section 4.4's fix; run this directly to see this session's own numbers rather than trusting any figure quoted in this README |
-| `heuristic_baseline.py` | The `>=50%` evidence heuristic used as a comparison point, Section 4.5 |
-| `grounding_check.py` | Verifies a drafted narrative's numbers trace back to real retrieved evidence, Section 5.5 |
-| `pipeline.py` | The actual end-to-end system: deadline guard, reason validation, evidence retrieval, scoring, decision gate, packet drafting, audit trail. `run_demo_batch()` is the entry point (Section 9). |
-| `streamlit_app.py` | Interactive dashboard demo |
-| `disputes_10k.csv` | The generated dataset itself (10,000 rows, seed 42) |
-| `model_artifacts/` | Saved model, calibrator, feature list, training metadata |
-| `results/ml/` | Evaluation outputs -- per-reason metrics, FP-cost sensitivity, augmentation comparison, heuristic-vs-ML comparison |
-| `results/audit_trail/` | Timestamped audit trails from `pipeline.py` runs |
-| `results/robustness_check.csv` | Multi-seed results backing Section 4.1's robustness claim |
+| `delivery_proof_available`, `tracking_number_valid`, `signature_confirmation` | `shipping_proof` |
+| `refund_already_processed`, `refund_processed_before_dispute` | `refund_confirmation` |
+| `customer_communication_count`, `customer_communication_sentiment` | `customer_communication` |
+| `refund_policy_disclosed_at_purchase` | `refund_cancellation_policy` |
+| `subscription_cancellation_confirmed` | `cancellation_proof` |
+| `duplicate_transaction_exists` | `billing_proof` (interpreted) |
+| `product_photos_available` | `proof_of_service` (interpreted) |
+| `avs_match`, `cvv_match`, `ip_device_match` | `access_activity_log` (interpreted) |
+| the drafted narrative | `explanation_letter`, truncated to Razorpay's real 1000-character limit |
 
-**Run order** (each step reads the previous step's output):
+Every field name in the right-hand column (`shipping_proof`,
+`billing_proof`, `cancellation_proof`, `customer_communication`,
+`refund_confirmation`, `access_activity_log`, `refund_cancellation_policy`,
+`explanation_letter`) is a real field in Razorpay's evidence object
+schema, not an invented category -- confirmed directly against the
+Disputes Entity docs (Section 15).
 
-1. `python generate_disputes.py --n 10000 --seed 42 --out disputes_10k.csv`
-2. `python train_model.py`
-3. `python train_and_compare.py` (optional -- Section 4.1's comparison)
-4. `python robustness_check.py` (optional -- multi-seed check backing 4.1)
-5. `python evaluate.py` -- produces the numbers in Sections 4.2-4.4
-6. `python sweep_reason_fp_cost.py` (optional -- justifies the Section 4.4 multiplier)
-7. `python heuristic_baseline.py` (optional -- Section 4.5's comparison)
-8. `python pipeline.py` -- runs the actual system end-to-end, produces Section 9's failure case
-9. Interactive demo: `streamlit run streamlit_app.py`
+**Downstream resolution path.** Razorpay's own official docs state
+directly: in the case of fraud, the merchant must refund the amount
+manually; in other cases, Razorpay auto-refunds. `get_decline_resolution_path()`
+surfaces which applies, so a decision to flag a dispute as insufficient
+comes with the correct downstream implication attached, not a
+one-size-fits-all assumption.
 
-## 11. Limitations and future work
+**`explanation_letter`'s 1000-character limit.** Stated explicitly in
+Razorpay's Contest API docs; `map_to_razorpay_evidence_schema()` truncates
+to this limit and flags when truncation occurred, rather than silently
+producing a packet Razorpay's real API would reject.
+
+## 12. How it maps to Razorpay's work
+
+Section 11 verifies the technical integration surface. This section
+verifies the business problem itself is real and matches what Razorpay's
+own reason-code taxonomy expects -- not just that the API fields exist.
+
+**The problem, in Razorpay's own numbers.** Razorpay's own blog states
+chargebacks can cost merchants up to 2-3% of international revenue, with
+a Rs.100-equivalent chargeback snowballing toward 150-180% of its original
+value once fees and shipping are added. A separate Razorpay post reports
+72% of merchants saw an increase in friendly-fraud chargebacks in 2024 --
+a growing, not shrinking, problem, matching Track 02's own framing
+("AI-enabled fraud is hitting Indian BFSI"). Full citations in Section 15.
+
+**This project's six reason codes against Razorpay's real, network-level
+reason codes.** Razorpay's own evidence-submission documentation lists the
+exact evidence types expected per real chargeback reason code (Visa,
+Mastercard, and Razorpay's own RZP-prefixed codes). Four of this project's
+six simplified categories map cleanly:
+
+| This project's reason code | Real Razorpay/network code(s) | Real suggested evidence | Matches this project's fields? |
+|---|---|---|---|
+| `credit_not_processed` | 1061 / 13.6 / C02 / RZP04 "Credit Not Processed" / "Refund not Processed" | Refund proof, bank statement, customer confirmation, refund policy | Yes -- matches `refund_already_processed`, `refund_processed_before_dispute` |
+| `not_as_described` | 1062 / 13.3 / 13.5 / C31 / C32 "Goods/Services Not As Described" | Product photos, delivery proof, customer communication, return policy | Yes -- matches `product_photos_available` |
+| `item_not_received` | 1064 / 13.1 / C08 / RZP01 "Goods/Services Not Received" | Delivery confirmation with signature, tracking info, customer communication | Yes, closely -- matches `delivery_proof_available`, `tracking_number_valid`, `signature_confirmation` almost field-for-field |
+| `subscription_cancelled` | 13.2 / 4841 / C28 "Cancelled Recurring Transaction" | Cancellation policy, continued usage logs, terms of service | Yes -- matches `subscription_cancellation_confirmed` |
+
+**Two honest gaps, stated rather than glossed over:**
+
+- **`fraud` is not actually a reason code in Razorpay's real system -- it's
+  a *phase*.** Razorpay's Disputes Entity docs list `fraud` as one of
+  several dispute phases (alongside `chargeback`, `retrieval`,
+  `pre_arbitration`), with real fraud disputes carrying specific
+  network-level codes underneath it (e.g. Visa's `10.4`). This project's
+  own malformed-dispute test case (Section 10) already uses a
+  Visa-10.4-style code, which is a deliberate acknowledgment of this
+  distinction, not an oversight -- but the six-code taxonomy in Section 1
+  simplifies `fraud` to a single bucket for this project's scope, rather
+  than nesting specific codes under a fraud phase the way the real system
+  does.
+- **`duplicate_charge` has no single, clean match** on Razorpay's public
+  reason-code list. This is named here explicitly rather than papered
+  over with an approximate mapping; it may correspond to a duplicate-
+  billing category not covered in the publicly available evidence-type
+  documentation, or it may be a simplification worth revisiting.
+
+## 13. Limitations and future work
 
 - Evaluated entirely on synthetic data; no external dataset exists to
   validate the generator's assumptions against. Stated openly rather than
@@ -526,9 +751,109 @@ was chosen over SMOTE.
   `payment.dispute.won` / `payment.dispute.lost` webhook events are the
   natural ground-truth signal for this -- the mechanism to consume them
   is not yet built, only identified.
-- Merchant-relative FP-cost (Section 7) is named but not implemented, for
+- Merchant-relative FP-cost (Section 8) is named but not implemented, for
   the reasons stated there.
 - Held-out test set is 2,000 disputes; some reason codes (subscription
   cancelled: 23 positive cases) are thin enough that per-reason metrics
   carry real sampling noise -- treat single-decimal differences between
   reason codes as indicative, not precise.
+- The `fraud` and `duplicate_charge` reason-code simplifications noted in
+  Section 12 are a scope decision for this submission, not a claim that
+  Razorpay's real taxonomy has been fully modeled.
+
+## 14. What makes it unique and standout
+
+**The strongest claim: this project audits itself, and you can prove it.**
+Most hackathon submissions present their first working run as the answer.
+CaseWise has a documented paper trail of finding real flaws in its own
+work and either fixing them or narrowing the claim to something true:
+
+- Found a data-leakage bug in a dependency's own comparison tool, didn't
+  use the inflated result (Section 9).
+- Found the underlying model's probabilities were literally worse than
+  guessing -- calibrated them, then proved the calibration mattered by
+  showing the smarter decision rule fails without it (Section 4.2).
+- Found the win-probability model could clear the gate on correlated
+  noise while the actual relevant evidence was absent -- built a
+  safeguard for it (Section 9).
+- Found a UI bug before it shipped, while building something unrelated
+  (Section 9).
+- Ran a 5-seed check on its own headline result and walked back an
+  overstated claim to a narrower, bulletproof one (Section 4.1).
+
+That last one is the rarest of these. Most teams find bugs in their code.
+Very few teams find their own marketing claim was too strong and correct
+it before a judge could. That's not a feature -- it's a demonstrated
+process, and it's the single hardest thing to fake in a pitch.
+
+**The second-strongest claim: the decision isn't a threshold, it's
+economics.** Nearly every classifier-based hackathon submission ends with
+"if probability > 0.5, do the thing." CaseWise's gate is a genuine
+expected-value calculation -- `win_probability x amount` versus
+`(1-win_probability) x cost` -- meaning the same win probability produces
+opposite decisions depending on what's at stake (Section 7.1's worked
+example shows this directly). The heuristic-comparison finding (Section
+4.5: ML loses on raw accuracy, wins on total cost by deliberately making
+its mistakes on cheap disputes) only exists because that formula is
+there. Worth stating precisely as "decision theory applied to a
+classifier," not "a smarter model."
+
+**Worth mentioning, in order of strength:**
+
+- The evidence schema and field names match Razorpay's actual, real
+  public API -- not "this could integrate with a payments platform," but
+  the literal field names (`shipping_proof`, `explanation_letter`, its
+  real 1000-character limit) a real submission would use (Section 11).
+- The hallucination guard was tested before it needed to work.
+  Adversarial test cases against fabricated narratives, and two real bugs
+  found in the guard itself before it ever caught a real hallucination --
+  testing the test, not just the model (Section 6.5).
+- The dashboard is live, not a skin. Every number renders from
+  `pipeline.py` actually running, with a full audit trail exposed
+  (Section 7) -- worth stating explicitly, since a polished-but-static
+  mockup is a common substitute in time-pressured hackathon builds, and
+  this deliberately isn't one.
+
+## 15. References -- what was used, and for what
+
+**Razorpay's own official API and product documentation** (Section 11's
+technical claims, verified directly against each):
+
+- Razorpay Disputes Entity docs -- `respond_by` field, real evidence
+  object schema: https://razorpay.com/docs/api/disputes/entity/
+- Razorpay Contest a Dispute docs -- the deadline-elapsed error,
+  `explanation_letter`'s 1000-character limit:
+  https://razorpay.com/docs/api/disputes/contest/
+- Razorpay "About Disputes" -- the fraud-vs-other-reason-codes refund
+  resolution path, stated directly: https://razorpay.com/docs/payments/disputes/
+- Razorpay "Submit Evidence" -- real, network-specific chargeback reason
+  codes and their expected evidence types, used for Section 12's mapping
+  table: https://razorpay.com/docs/payments/disputes/submit-evidence/
+
+**Razorpay's own blog** (Section 12's problem-framing claims):
+
+- "All you need to know about Chargebacks" -- the 2-3%-of-revenue cost
+  estimate: https://razorpay.com/blog/all-you-need-to-know-about-chargebacks/
+- "What Is Chargeback Fraud?" -- the 72% year-over-year increase stat:
+  https://razorpay.com/blog/what-is-chargeback-fraud/
+- "How Razorpay helps you to handle chargebacks" -- Razorpay's own framing
+  of timely, high-quality representation as the core lever for dispute
+  win rates: https://razorpay.com/blog/how-razorpay-helps-you-to-handle-chargebacks/
+
+**Academic literature** (backing the decision-gate's underlying
+methodology, Section 6.2 -- these establish that cost-sensitive,
+amount-aware classification is an established technique, not an ad-hoc
+rule invented for this project):
+
+- Cost-Sensitive Learning in Financial Fraud Detection Models (2023) --
+  cost-sensitive learning, including threshold adjustment, reduces the
+  costly false negatives that plain accuracy-driven models under-weight
+  in financial fraud contexts: https://www.researchgate.net/publication/393569888_Cost-Sensitive_Learning_in_Financial_Fraud_Detection_Models
+- Classification cost: traditional vs. Cost-Sensitive Classifier vs.
+  MetaCost -- the specific academic precedent for an *amount-aware*
+  (example-dependent) cost formula in fraud detection, where the cost of
+  a misclassification depends on the transaction amount, not just the
+  true/predicted label: https://www.sciencedirect.com/science/article/abs/pii/S0957417411013947
+detection), not because Razorpay is known to use it. This distinction is
+stated explicitly here, and again in Section 4.1, to avoid an unfounded
+claim about a specific company's internal stack.
