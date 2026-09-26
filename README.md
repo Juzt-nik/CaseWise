@@ -28,7 +28,8 @@ more than it costs and drafts the evidence response around it.
 ## 1. What it does
 
 A dispute enters with a reason code, a transaction amount, and (optionally)
-a response deadline. The system:
+a response deadline. 
+The system:
 
 1. Checks whether the response deadline has already passed -- if so,
    stops immediately, before any scoring or drafting is attempted.
